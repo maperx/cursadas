@@ -24,6 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/use-toast";
 import { createCursada, updateCursada } from "@/actions/cursadas";
+import { formatTime, addMinutesToTime, timeDifferenceInMinutes } from "@/lib/utils";
 
 type Carrera = {
   id: string;
@@ -67,6 +68,7 @@ interface CursadaDialogProps {
     notes: string | null;
     weeklyRepetition: boolean;
     commissionNumber: string | null;
+    examen: boolean;
     docenteIds: string[];
   };
 }
@@ -104,6 +106,20 @@ export function CursadaDialog({
   const [weeklyRepetition, setWeeklyRepetition] = useState(
     cursada?.weeklyRepetition ?? true
   );
+  const [examen, setExamen] = useState(cursada?.examen ?? false);
+
+  const defaultStartTime = cursada ? formatTime(cursada.startTime) : "08:00";
+  const defaultEndTime = cursada
+    ? addMinutesToTime(formatTime(cursada.startTime), cursada.durationMinutes)
+    : "09:30";
+
+  const [startTime, setStartTime] = useState(defaultStartTime);
+  const [endTime, setEndTime] = useState(defaultEndTime);
+
+  const calculatedDuration = useMemo(
+    () => timeDifferenceInMinutes(startTime, endTime),
+    [startTime, endTime]
+  );
 
   const isEditing = !!cursada;
 
@@ -118,6 +134,12 @@ export function CursadaDialog({
     setIsLoading(true);
     setErrors({});
 
+    if (calculatedDuration <= 0) {
+      setErrors({ endTime: ["La hora de fin debe ser posterior a la hora de inicio"] });
+      setIsLoading(false);
+      return;
+    }
+
     const formData = new FormData(e.currentTarget);
     formData.set("carreraId", selectedCarrera);
     formData.set("asignaturaId", selectedAsignatura);
@@ -125,6 +147,9 @@ export function CursadaDialog({
     formData.set("daysOfWeek", JSON.stringify(selectedDays));
     formData.set("docenteIds", JSON.stringify(selectedDocentes));
     formData.set("weeklyRepetition", weeklyRepetition.toString());
+    formData.set("examen", examen.toString());
+    formData.set("startTime", startTime);
+    formData.set("durationMinutes", calculatedDuration.toString());
 
     const result = isEditing
       ? await updateCursada(cursada.id, formData)
@@ -298,9 +323,9 @@ export function CursadaDialog({
               <Label htmlFor="startTime">Hora de inicio</Label>
               <Input
                 id="startTime"
-                name="startTime"
                 type="time"
-                defaultValue={cursada?.startTime || "08:00"}
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
                 disabled={isLoading}
               />
               {errors.startTime && (
@@ -309,36 +334,52 @@ export function CursadaDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="durationMinutes">Duración (minutos)</Label>
+              <Label htmlFor="endTime">Hora de fin</Label>
               <Input
-                id="durationMinutes"
-                name="durationMinutes"
-                type="number"
-                min="15"
-                step="15"
-                defaultValue={cursada?.durationMinutes || 90}
+                id="endTime"
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
                 disabled={isLoading}
               />
-              {errors.durationMinutes && (
-                <p className="text-sm text-destructive">
-                  {errors.durationMinutes[0]}
+              {errors.endTime && (
+                <p className="text-sm text-destructive">{errors.endTime[0]}</p>
+              )}
+              {calculatedDuration > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Duración: {calculatedDuration} min
                 </p>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="weeklyRepetition"
-              checked={weeklyRepetition}
-              onCheckedChange={(checked) =>
-                setWeeklyRepetition(checked as boolean)
-              }
-              disabled={isLoading}
-            />
-            <label htmlFor="weeklyRepetition" className="text-sm cursor-pointer">
-              Se repite semanalmente
-            </label>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="weeklyRepetition"
+                checked={weeklyRepetition}
+                onCheckedChange={(checked) =>
+                  setWeeklyRepetition(checked as boolean)
+                }
+                disabled={isLoading}
+              />
+              <label htmlFor="weeklyRepetition" className="text-sm cursor-pointer">
+                Se repite semanalmente
+              </label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="examen"
+                checked={examen}
+                onCheckedChange={(checked) =>
+                  setExamen(checked as boolean)
+                }
+                disabled={isLoading}
+              />
+              <label htmlFor="examen" className="text-sm cursor-pointer">
+                Es examen
+              </label>
+            </div>
           </div>
 
           <div className="space-y-2">

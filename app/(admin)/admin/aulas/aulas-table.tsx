@@ -60,12 +60,21 @@ interface AulasTableProps {
 }
 
 export function AulasTable({ data }: AulasTableProps) {
+  const buildings = [...new Set(data.map((a) => a.building))].sort();
+
   return (
     <DataTable
       columns={columns}
       data={data}
       searchColumn="name"
       searchPlaceholder="Buscar aula..."
+      filters={[
+        {
+          column: "building",
+          options: buildings.map((b) => ({ label: b, value: b })),
+          placeholder: "Todos los edificios",
+        },
+      ]}
     />
   );
 }

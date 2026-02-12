@@ -16,7 +16,7 @@ import { GraduationCap, LogIn, LogOut, Settings, User, BookOpen } from "lucide-r
 
 export function PublicHeader() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, isPending } = useSession();
 
   const handleSignOut = async () => {
     await signOut();
@@ -75,14 +75,14 @@ export function PublicHeader() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </>
-          ) : (
+          ) : !isPending ? (
             <Button size="sm" asChild>
               <Link href="/login">
                 <LogIn className="h-4 w-4 mr-2" />
                 Ingresar
               </Link>
             </Button>
-          )}
+          ) : null}
         </nav>
       </div>
     </header>

@@ -31,6 +31,7 @@ export const cursadas = pgTable("cursadas", {
   notes: text("notes"),
   weeklyRepetition: boolean("weekly_repetition").notNull().default(true),
   commissionNumber: text("commission_number"),
+  examen: boolean("examen").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

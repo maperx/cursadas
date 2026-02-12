@@ -40,6 +40,8 @@ export async function createCarrera(formData: FormData) {
   });
 
   revalidatePath("/admin/carreras");
+  revalidatePath("/admin/asignaturas");
+  revalidatePath("/admin/cursadas");
   return { success: true };
 }
 
@@ -64,11 +66,15 @@ export async function updateCarrera(id: string, formData: FormData) {
     .where(eq(carreras.id, id));
 
   revalidatePath("/admin/carreras");
+  revalidatePath("/admin/asignaturas");
+  revalidatePath("/admin/cursadas");
   return { success: true };
 }
 
 export async function deleteCarrera(id: string) {
   await db.delete(carreras).where(eq(carreras.id, id));
   revalidatePath("/admin/carreras");
+  revalidatePath("/admin/asignaturas");
+  revalidatePath("/admin/cursadas");
   return { success: true };
 }

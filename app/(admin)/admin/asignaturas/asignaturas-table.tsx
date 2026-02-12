@@ -50,6 +50,7 @@ export function AsignaturasTable({ data, carreras, docentes }: AsignaturasTableP
     },
     {
       id: "carrera",
+      accessorFn: (row) => row.carrera.name,
       header: "Carrera",
       cell: ({ row }) => (
         <Badge
@@ -120,6 +121,13 @@ export function AsignaturasTable({ data, carreras, docentes }: AsignaturasTableP
       data={data}
       searchColumn="name"
       searchPlaceholder="Buscar asignatura..."
+      filters={[
+        {
+          column: "carrera",
+          options: carreras.map((c) => ({ label: c.name, value: c.name })),
+          placeholder: "Todas las carreras",
+        },
+      ]}
     />
   );
 }

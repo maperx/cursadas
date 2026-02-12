@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { cursadas, cursadaDocentes } from "@/lib/db/schema";
+import { cursadas, cursadaDocentes, asignaturas } from "@/lib/db/schema";
 import { eq, and, ne } from "drizzle-orm";
 import { z } from "zod";
 
@@ -16,6 +16,7 @@ const cursadaSchema = z.object({
   notes: z.string().optional().nullable(),
   weeklyRepetition: z.boolean().default(true),
   commissionNumber: z.string().optional().nullable(),
+  examen: z.boolean().default(false),
   docenteIds: z.array(z.string().uuid()).optional(),
 });
 
@@ -90,6 +91,8 @@ export async function getCursadasByFilters(filters: {
     },
   });
 
+  const today = new Date().toISOString().slice(0, 10);
+
   return allCursadas.filter((cursada) => {
     if (filters.dayOfWeek !== undefined && !cursada.daysOfWeek.includes(filters.dayOfWeek)) {
       return false;
@@ -103,6 +106,9 @@ export async function getCursadasByFilters(filters: {
     if (filters.aulaId && cursada.aulaId !== filters.aulaId) {
       return false;
     }
+    // Exclude cursadas outside their asignatura's date range
+    if (cursada.asignatura.startDate && today < cursada.asignatura.startDate) return false;
+    if (cursada.asignatura.endDate && today > cursada.asignatura.endDate) return false;
     return true;
   });
 }
@@ -112,13 +118,31 @@ function timeToMinutes(time: string): number {
   return hours * 60 + mins;
 }
 
+function datesOverlap(
+  startA: string | null,
+  endA: string | null,
+  startB: string | null,
+  endB: string | null
+): boolean {
+  // If any date is missing, assume overlap (conservative)
+  if (!startA || !endA || !startB || !endB) return true;
+  return startA <= endB && startB <= endA;
+}
+
 async function checkAulaConflict(
   aulaId: string,
   daysOfWeek: number[],
   startTime: string,
   durationMinutes: number,
+  asignaturaId: string,
+  isExamen: boolean,
   excludeCursadaId?: string
 ) {
+  // Fetch the new cursada's asignatura to get date range
+  const newAsignatura = await db.query.asignaturas.findFirst({
+    where: eq(asignaturas.id, asignaturaId),
+  });
+
   const existingCursadas = await db.query.cursadas.findMany({
     where: excludeCursadaId
       ? and(eq(cursadas.aulaId, aulaId), ne(cursadas.id, excludeCursadaId))
@@ -141,7 +165,22 @@ async function checkAulaConflict(
     const existingStart = timeToMinutes(existing.startTime);
     const existingEnd = existingStart + existing.durationMinutes;
 
+    // Check time overlap
     if (newStart < existingEnd && existingStart < newEnd) {
+      // Check if the date periods of the asignaturas overlap
+      const periodsOverlap = datesOverlap(
+        newAsignatura?.startDate ?? null,
+        newAsignatura?.endDate ?? null,
+        existing.asignatura.startDate,
+        existing.asignatura.endDate
+      );
+
+      // If periods don't overlap, no conflict
+      if (!periodsOverlap) continue;
+
+      // If periods overlap but this is an examen, allow it
+      if (isExamen) continue;
+
       const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
       const conflictDays = sharedDays.map((d) => dayNames[d]).join(", ");
       return `El aula "${existing.aula.name}" ya está ocupada por "${existing.asignatura.name}" los días ${conflictDays} en ese horario`;
@@ -155,16 +194,19 @@ export async function createCursada(formData: FormData) {
   const daysOfWeekRaw = formData.get("daysOfWeek") as string;
   const docenteIdsRaw = formData.get("docenteIds") as string;
 
+  const rawStartTime = formData.get("startTime") as string;
+
   const data = {
     aulaId: formData.get("aulaId") as string,
     carreraId: formData.get("carreraId") as string,
     asignaturaId: formData.get("asignaturaId") as string,
     daysOfWeek: daysOfWeekRaw ? JSON.parse(daysOfWeekRaw) : [],
-    startTime: formData.get("startTime") as string,
+    startTime: rawStartTime?.slice(0, 5),
     durationMinutes: parseInt(formData.get("durationMinutes") as string),
     notes: formData.get("notes") as string || null,
     weeklyRepetition: formData.get("weeklyRepetition") === "true",
     commissionNumber: formData.get("commissionNumber") as string || null,
+    examen: formData.get("examen") === "true",
     docenteIds: docenteIdsRaw ? JSON.parse(docenteIdsRaw) : [],
   };
 
@@ -177,7 +219,9 @@ export async function createCursada(formData: FormData) {
     validated.data.aulaId,
     validated.data.daysOfWeek,
     validated.data.startTime,
-    validated.data.durationMinutes
+    validated.data.durationMinutes,
+    validated.data.asignaturaId,
+    validated.data.examen
   );
   if (conflict) {
     return { error: { _form: [conflict] } };
@@ -193,6 +237,7 @@ export async function createCursada(formData: FormData) {
     notes: validated.data.notes,
     weeklyRepetition: validated.data.weeklyRepetition,
     commissionNumber: validated.data.commissionNumber,
+    examen: validated.data.examen,
   }).returning();
 
   // Add docentes if any
@@ -213,17 +258,19 @@ export async function createCursada(formData: FormData) {
 export async function updateCursada(id: string, formData: FormData) {
   const daysOfWeekRaw = formData.get("daysOfWeek") as string;
   const docenteIdsRaw = formData.get("docenteIds") as string;
+  const rawStartTime = formData.get("startTime") as string;
 
   const data = {
     aulaId: formData.get("aulaId") as string,
     carreraId: formData.get("carreraId") as string,
     asignaturaId: formData.get("asignaturaId") as string,
     daysOfWeek: daysOfWeekRaw ? JSON.parse(daysOfWeekRaw) : [],
-    startTime: formData.get("startTime") as string,
+    startTime: rawStartTime?.slice(0, 5),
     durationMinutes: parseInt(formData.get("durationMinutes") as string),
     notes: formData.get("notes") as string || null,
     weeklyRepetition: formData.get("weeklyRepetition") === "true",
     commissionNumber: formData.get("commissionNumber") as string || null,
+    examen: formData.get("examen") === "true",
     docenteIds: docenteIdsRaw ? JSON.parse(docenteIdsRaw) : [],
   };
 
@@ -237,6 +284,8 @@ export async function updateCursada(id: string, formData: FormData) {
     validated.data.daysOfWeek,
     validated.data.startTime,
     validated.data.durationMinutes,
+    validated.data.asignaturaId,
+    validated.data.examen,
     id
   );
   if (conflict) {
@@ -255,6 +304,7 @@ export async function updateCursada(id: string, formData: FormData) {
       notes: validated.data.notes,
       weeklyRepetition: validated.data.weeklyRepetition,
       commissionNumber: validated.data.commissionNumber,
+      examen: validated.data.examen,
       updatedAt: new Date(),
     })
     .where(eq(cursadas.id, id));

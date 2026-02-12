@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Pencil, Trash2 } from "lucide-react";
 import { deleteCursada } from "@/actions/cursadas";
 import { getDayName, formatTime, addMinutesToTime } from "@/lib/utils";
+import { useMemo } from "react";
 
 type Carrera = {
   id: string;
@@ -46,11 +47,12 @@ type Cursada = {
   notes: string | null;
   weeklyRepetition: boolean;
   commissionNumber: string | null;
+  examen: boolean;
   createdAt: Date;
   updatedAt: Date;
   aula: Aula;
   carrera: Carrera;
-  asignatura: { id: string; name: string };
+  asignatura: { id: string; name: string; startDate: string | null; endDate: string | null };
   cursadaDocentes: {
     docente: Docente;
   }[];
@@ -71,6 +73,15 @@ export function CursadasTable({
   docentes,
   aulas,
 }: CursadasTableProps) {
+  const activeCursadas = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return data.filter((c) => {
+      if (c.asignatura.startDate && today < c.asignatura.startDate) return false;
+      if (c.asignatura.endDate && today > c.asignatura.endDate) return false;
+      return true;
+    });
+  }, [data]);
+
   const columns: ColumnDef<Cursada>[] = [
     {
       id: "asignatura",
@@ -78,7 +89,14 @@ export function CursadasTable({
       header: "Asignatura",
       cell: ({ row }) => (
         <div>
-          <div className="font-medium">{row.original.asignatura.name}</div>
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium">{row.original.asignatura.name}</span>
+            {row.original.examen && (
+              <Badge variant="destructive" className="text-[10px] px-1 py-0">
+                Examen
+              </Badge>
+            )}
+          </div>
           {row.original.commissionNumber && (
             <div className="text-xs text-muted-foreground">
               Comisión {row.original.commissionNumber}
@@ -102,6 +120,7 @@ export function CursadasTable({
     },
     {
       id: "aula",
+      accessorFn: (row) => row.aula.name,
       header: "Aula",
       cell: ({ row }) => (
         <div>
@@ -191,12 +210,9 @@ export function CursadasTable({
   return (
     <DataTable
       columns={columns}
-      data={data}
+      data={activeCursadas}
       searchColumn="asignatura"
       searchPlaceholder="Buscar cursada..."
-      filterColumn="carrera"
-      filterOptions={carreras.map((c) => ({ label: c.name, value: c.name }))}
-      filterPlaceholder="Todas las carreras"
     />
   );
 }

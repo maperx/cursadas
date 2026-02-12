@@ -36,14 +36,18 @@ interface FilterOption {
   value: string;
 }
 
+interface Filter {
+  column: string;
+  options: FilterOption[];
+  placeholder: string;
+}
+
 interface DataTableProps<TData> {
   columns: ColumnDef<TData, unknown>[];
   data: TData[];
   searchColumn?: string;
   searchPlaceholder?: string;
-  filterColumn?: string;
-  filterOptions?: FilterOption[];
-  filterPlaceholder?: string;
+  filters?: Filter[];
 }
 
 export function DataTable<TData>({
@@ -51,9 +55,7 @@ export function DataTable<TData>({
   data,
   searchColumn,
   searchPlaceholder = "Buscar...",
-  filterColumn,
-  filterOptions,
-  filterPlaceholder = "Todos",
+  filters,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -75,7 +77,7 @@ export function DataTable<TData>({
 
   return (
     <div className="space-y-4">
-      {(searchColumn || filterColumn) && (
+      {(searchColumn || filters?.length) && (
         <div className="flex items-center gap-2">
           {searchColumn && (
             <div className="relative max-w-sm">
@@ -92,30 +94,31 @@ export function DataTable<TData>({
               />
             </div>
           )}
-          {filterColumn && filterOptions && (
+          {filters?.map((filter) => (
             <Select
+              key={filter.column}
               value={
-                (table.getColumn(filterColumn)?.getFilterValue() as string) ?? "all"
+                (table.getColumn(filter.column)?.getFilterValue() as string) ?? "all"
               }
               onValueChange={(value) =>
                 table
-                  .getColumn(filterColumn)
+                  .getColumn(filter.column)
                   ?.setFilterValue(value === "all" ? undefined : value)
               }
             >
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder={filterPlaceholder} />
+                <SelectValue placeholder={filter.placeholder} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{filterPlaceholder}</SelectItem>
-                {filterOptions.map((option) => (
+                <SelectItem value="all">{filter.placeholder}</SelectItem>
+                {filter.options.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          )}
+          ))}
         </div>
       )}
       <div className="rounded-md border">

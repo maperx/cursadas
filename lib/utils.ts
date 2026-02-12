@@ -35,3 +35,9 @@ export function addMinutesToTime(time: string, minutes: number): string {
   const newMins = totalMinutes % 60;
   return `${newHours.toString().padStart(2, "0")}:${newMins.toString().padStart(2, "0")}`;
 }
+
+export function timeDifferenceInMinutes(start: string, end: string): number {
+  const [startH, startM] = start.split(":").map(Number);
+  const [endH, endM] = end.split(":").map(Number);
+  return (endH * 60 + endM) - (startH * 60 + startM);
+}
