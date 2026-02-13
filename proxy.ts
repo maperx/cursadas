@@ -1,29 +1,31 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { auth } from "@/lib/auth";
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Check for session token in cookies
-  const sessionToken = request.cookies.get("better-auth.session_token");
+  const session = await auth.api.getSession({
+    headers: request.headers,
+  });
 
   // Protected admin routes
   if (pathname.startsWith("/admin")) {
-    if (!sessionToken) {
+    if (!session) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
   }
 
   // Protected student routes
   if (pathname.startsWith("/mis-cursadas")) {
-    if (!sessionToken) {
+    if (!session) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
   }
 
   // Redirect logged-in users away from auth pages
   if (pathname === "/login" || pathname === "/register") {
-    if (sessionToken) {
+    if (session) {
       return NextResponse.redirect(new URL("/", request.url));
     }
   }
