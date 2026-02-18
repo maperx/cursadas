@@ -6,6 +6,7 @@ import {
   integer,
   boolean,
   time,
+  date,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { aulas } from "./aulas";
@@ -30,6 +31,7 @@ export const cursadas = pgTable("cursadas", {
   durationMinutes: integer("duration_minutes").notNull(),
   notes: text("notes"),
   weeklyRepetition: boolean("weekly_repetition").notNull().default(true),
+  eventDate: date("event_date"), // only used when weeklyRepetition = false
   commissionNumber: text("commission_number"),
   examen: boolean("examen").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),

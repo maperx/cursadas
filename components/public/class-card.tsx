@@ -12,6 +12,8 @@ interface ClassCardProps {
     startTime: string;
     durationMinutes: number;
     daysOfWeek: number[];
+    weeklyRepetition: boolean;
+    eventDate: string | null;
     commissionNumber: string | null;
     asignatura: {
       name: string;
@@ -98,11 +100,17 @@ export function ClassCard({ cursada, index = 0 }: ClassCardProps) {
           )}
 
           <div className="flex flex-wrap gap-1 pt-2">
-            {cursada.daysOfWeek.map((day) => (
-              <Badge key={day} variant="outline" className="text-xs">
-                {getDayName(day)}
+            {!cursada.weeklyRepetition && cursada.eventDate ? (
+              <Badge variant="secondary" className="text-xs">
+                {cursada.eventDate.split("-").reverse().join("/")}
               </Badge>
-            ))}
+            ) : (
+              cursada.daysOfWeek.map((day) => (
+                <Badge key={day} variant="outline" className="text-xs">
+                  {getDayName(day)}
+                </Badge>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

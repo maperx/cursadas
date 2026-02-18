@@ -48,6 +48,7 @@ type Cursada = {
   durationMinutes: number;
   notes: string | null;
   weeklyRepetition: boolean;
+  eventDate: string | null;
   commissionNumber: string | null;
   examen: boolean;
   createdAt: Date;

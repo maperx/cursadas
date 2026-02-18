@@ -46,6 +46,7 @@ type Cursada = {
   durationMinutes: number;
   notes: string | null;
   weeklyRepetition: boolean;
+  eventDate: string | null;
   commissionNumber: string | null;
   examen: boolean;
   createdAt: Date;
@@ -133,16 +134,26 @@ export function CursadasTable({
     },
     {
       id: "dias",
-      header: "Días",
-      cell: ({ row }) => (
-        <div className="flex flex-wrap gap-1">
-          {row.original.daysOfWeek.map((day) => (
-            <Badge key={day} variant="outline">
-              {getDayName(day)}
+      header: "Días / Fecha",
+      cell: ({ row }) => {
+        if (!row.original.weeklyRepetition && row.original.eventDate) {
+          const [y, m, d] = row.original.eventDate.split("-");
+          return (
+            <Badge variant="secondary">
+              {d}/{m}/{y}
             </Badge>
-          ))}
-        </div>
-      ),
+          );
+        }
+        return (
+          <div className="flex flex-wrap gap-1">
+            {row.original.daysOfWeek.map((day) => (
+              <Badge key={day} variant="outline">
+                {getDayName(day)}
+              </Badge>
+            ))}
+          </div>
+        );
+      },
     },
     {
       id: "horario",

@@ -30,6 +30,7 @@ type Cursada = {
   durationMinutes: number;
   notes: string | null;
   weeklyRepetition: boolean;
+  eventDate: string | null;
   commissionNumber: string | null;
   examen: boolean;
   createdAt: Date;
@@ -156,12 +157,16 @@ export function CursadasDaily({
   const dayOfWeek = selectedDate.getDay();
   const selectedDateStr = toInputValue(selectedDate); // "YYYY-MM-DD"
   const dayCursadas = data.filter((c) => {
-    if (!c.daysOfWeek.includes(dayOfWeek)) return false;
-    // If asignatura has date range, only show cursada within that range
-    const { startDate, endDate } = c.asignatura;
-    if (startDate && selectedDateStr < startDate) return false;
-    if (endDate && selectedDateStr > endDate) return false;
-    return true;
+    if (c.weeklyRepetition) {
+      // Weekly events: match by day of week
+      if (!c.daysOfWeek.includes(dayOfWeek)) return false;
+      const { startDate, endDate } = c.asignatura;
+      if (startDate && selectedDateStr < startDate) return false;
+      if (endDate && selectedDateStr > endDate) return false;
+      return true;
+    }
+    // Non-weekly events: match by exact date
+    return c.eventDate === selectedDateStr;
   });
 
   // Date navigation

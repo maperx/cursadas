@@ -67,6 +67,7 @@ interface CursadaDialogProps {
     durationMinutes: number;
     notes: string | null;
     weeklyRepetition: boolean;
+    eventDate: string | null;
     commissionNumber: string | null;
     examen: boolean;
     docenteIds: string[];
@@ -106,6 +107,7 @@ export function CursadaDialog({
   const [weeklyRepetition, setWeeklyRepetition] = useState(
     cursada?.weeklyRepetition ?? true
   );
+  const [eventDate, setEventDate] = useState(cursada?.eventDate || "");
   const [examen, setExamen] = useState(cursada?.examen ?? false);
 
   const defaultStartTime = cursada ? formatTime(cursada.startTime) : "08:00";
@@ -147,6 +149,7 @@ export function CursadaDialog({
     formData.set("daysOfWeek", JSON.stringify(selectedDays));
     formData.set("docenteIds", JSON.stringify(selectedDocentes));
     formData.set("weeklyRepetition", weeklyRepetition.toString());
+    formData.set("eventDate", weeklyRepetition ? "" : eventDate);
     formData.set("examen", examen.toString());
     formData.set("startTime", startTime);
     formData.set("durationMinutes", calculatedDuration.toString());
@@ -297,26 +300,42 @@ export function CursadaDialog({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Días de la semana</Label>
-            <div className="flex flex-wrap gap-2">
-              {DAYS.map((day) => (
-                <Button
-                  key={day.value}
-                  type="button"
-                  variant={selectedDays.includes(day.value) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => toggleDay(day.value)}
-                  disabled={isLoading}
-                >
-                  {day.label}
-                </Button>
-              ))}
+          {weeklyRepetition ? (
+            <div className="space-y-2">
+              <Label>Días de la semana</Label>
+              <div className="flex flex-wrap gap-2">
+                {DAYS.map((day) => (
+                  <Button
+                    key={day.value}
+                    type="button"
+                    variant={selectedDays.includes(day.value) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => toggleDay(day.value)}
+                    disabled={isLoading}
+                  >
+                    {day.label}
+                  </Button>
+                ))}
+              </div>
+              {errors.daysOfWeek && (
+                <p className="text-sm text-destructive">{errors.daysOfWeek[0]}</p>
+              )}
             </div>
-            {errors.daysOfWeek && (
-              <p className="text-sm text-destructive">{errors.daysOfWeek[0]}</p>
-            )}
-          </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="eventDate">Fecha del evento</Label>
+              <Input
+                id="eventDate"
+                type="date"
+                value={eventDate}
+                onChange={(e) => setEventDate(e.target.value)}
+                disabled={isLoading}
+              />
+              {errors.eventDate && (
+                <p className="text-sm text-destructive">{errors.eventDate[0]}</p>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -358,9 +377,15 @@ export function CursadaDialog({
               <Checkbox
                 id="weeklyRepetition"
                 checked={weeklyRepetition}
-                onCheckedChange={(checked) =>
-                  setWeeklyRepetition(checked as boolean)
-                }
+                onCheckedChange={(checked) => {
+                  const isWeekly = checked as boolean;
+                  setWeeklyRepetition(isWeekly);
+                  if (isWeekly) {
+                    setEventDate("");
+                  } else {
+                    setSelectedDays([]);
+                  }
+                }}
                 disabled={isLoading}
               />
               <label htmlFor="weeklyRepetition" className="text-sm cursor-pointer">

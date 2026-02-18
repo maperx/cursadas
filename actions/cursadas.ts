@@ -10,14 +10,30 @@ const cursadaSchema = z.object({
   aulaId: z.string().uuid("Aula inválida"),
   carreraId: z.string().uuid("Carrera inválida"),
   asignaturaId: z.string().uuid("Asignatura inválida"),
-  daysOfWeek: z.array(z.number().int().min(0).max(6)).min(1, "Selecciona al menos un día"),
+  daysOfWeek: z.array(z.number().int().min(0).max(6)).default([]),
   startTime: z.string().regex(/^\d{2}:\d{2}$/, "Hora inválida"),
   durationMinutes: z.coerce.number().int().positive("Duración inválida"),
   notes: z.string().optional().nullable(),
   weeklyRepetition: z.boolean().default(true),
+  eventDate: z.string().nullable().optional(),
   commissionNumber: z.string().optional().nullable(),
   examen: z.boolean().default(false),
   docenteIds: z.array(z.string().uuid()).optional(),
+}).superRefine((data, ctx) => {
+  if (data.weeklyRepetition && data.daysOfWeek.length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Selecciona al menos un día",
+      path: ["daysOfWeek"],
+    });
+  }
+  if (!data.weeklyRepetition && !data.eventDate) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Selecciona una fecha",
+      path: ["eventDate"],
+    });
+  }
 });
 
 export async function getCursadas() {
@@ -94,8 +110,13 @@ export async function getCursadasByFilters(filters: {
   const today = new Date().toISOString().slice(0, 10);
 
   return allCursadas.filter((cursada) => {
-    if (filters.dayOfWeek !== undefined && !cursada.daysOfWeek.includes(filters.dayOfWeek)) {
-      return false;
+    if (filters.dayOfWeek !== undefined) {
+      if (cursada.weeklyRepetition) {
+        if (!cursada.daysOfWeek.includes(filters.dayOfWeek)) return false;
+      } else {
+        // Non-weekly: show only if eventDate matches today
+        if (cursada.eventDate !== today) return false;
+      }
     }
     if (filters.carreraId && cursada.carreraId !== filters.carreraId) {
       return false;
@@ -106,9 +127,11 @@ export async function getCursadasByFilters(filters: {
     if (filters.aulaId && cursada.aulaId !== filters.aulaId) {
       return false;
     }
-    // Exclude cursadas outside their asignatura's date range
-    if (cursada.asignatura.startDate && today < cursada.asignatura.startDate) return false;
-    if (cursada.asignatura.endDate && today > cursada.asignatura.endDate) return false;
+    // Exclude weekly cursadas outside their asignatura's date range
+    if (cursada.weeklyRepetition) {
+      if (cursada.asignatura.startDate && today < cursada.asignatura.startDate) return false;
+      if (cursada.asignatura.endDate && today > cursada.asignatura.endDate) return false;
+    }
     return true;
   });
 }
@@ -129,6 +152,11 @@ function datesOverlap(
   return startA <= endB && startB <= endA;
 }
 
+function getDayOfWeekFromDate(dateStr: string): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d).getDay();
+}
+
 async function checkAulaConflict(
   aulaId: string,
   daysOfWeek: number[],
@@ -136,6 +164,8 @@ async function checkAulaConflict(
   durationMinutes: number,
   asignaturaId: string,
   isExamen: boolean,
+  weeklyRepetition: boolean,
+  eventDate: string | null | undefined,
   excludeCursadaId?: string
 ) {
   // Fetch the new cursada's asignatura to get date range
@@ -157,33 +187,66 @@ async function checkAulaConflict(
   const newEnd = newStart + durationMinutes;
 
   for (const existing of existingCursadas) {
-    const sharedDays = daysOfWeek.filter((d) =>
-      existing.daysOfWeek.includes(d)
-    );
-    if (sharedDays.length === 0) continue;
+    // Determine if the two cursadas share any day
+    let hasSharedDay = false;
+    let conflictLabel = "";
+    const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+    if (weeklyRepetition && existing.weeklyRepetition) {
+      // Both weekly: check shared days of week
+      const sharedDays = daysOfWeek.filter((d) => existing.daysOfWeek.includes(d));
+      if (sharedDays.length === 0) continue;
+      hasSharedDay = true;
+      conflictLabel = sharedDays.map((d) => dayNames[d]).join(", ");
+    } else if (!weeklyRepetition && !existing.weeklyRepetition) {
+      // Both non-weekly: check same event date
+      if (!eventDate || eventDate !== existing.eventDate) continue;
+      hasSharedDay = true;
+      conflictLabel = eventDate;
+    } else if (!weeklyRepetition && existing.weeklyRepetition) {
+      // New is non-weekly, existing is weekly: check if eventDate falls on one of existing's days
+      if (!eventDate) continue;
+      const eventDayOfWeek = getDayOfWeekFromDate(eventDate);
+      if (!existing.daysOfWeek.includes(eventDayOfWeek)) continue;
+      // Also check if eventDate falls within existing's asignatura date range
+      if (existing.asignatura.startDate && eventDate < existing.asignatura.startDate) continue;
+      if (existing.asignatura.endDate && eventDate > existing.asignatura.endDate) continue;
+      hasSharedDay = true;
+      conflictLabel = eventDate;
+    } else {
+      // New is weekly, existing is non-weekly: check if existing's eventDate falls on one of new's days
+      if (!existing.eventDate) continue;
+      const existingDayOfWeek = getDayOfWeekFromDate(existing.eventDate);
+      if (!daysOfWeek.includes(existingDayOfWeek)) continue;
+      // Also check if existing's eventDate falls within new's asignatura date range
+      if (newAsignatura?.startDate && existing.eventDate < newAsignatura.startDate) continue;
+      if (newAsignatura?.endDate && existing.eventDate > newAsignatura.endDate) continue;
+      hasSharedDay = true;
+      conflictLabel = existing.eventDate;
+    }
+
+    if (!hasSharedDay) continue;
 
     const existingStart = timeToMinutes(existing.startTime);
     const existingEnd = existingStart + existing.durationMinutes;
 
     // Check time overlap
     if (newStart < existingEnd && existingStart < newEnd) {
-      // Check if the date periods of the asignaturas overlap
-      const periodsOverlap = datesOverlap(
-        newAsignatura?.startDate ?? null,
-        newAsignatura?.endDate ?? null,
-        existing.asignatura.startDate,
-        existing.asignatura.endDate
-      );
+      // For two weekly cursadas, also check asignatura date period overlap
+      if (weeklyRepetition && existing.weeklyRepetition) {
+        const periodsOverlap = datesOverlap(
+          newAsignatura?.startDate ?? null,
+          newAsignatura?.endDate ?? null,
+          existing.asignatura.startDate,
+          existing.asignatura.endDate
+        );
+        if (!periodsOverlap) continue;
+      }
 
-      // If periods don't overlap, no conflict
-      if (!periodsOverlap) continue;
-
-      // If periods overlap but this is an examen, allow it
+      // If this is an examen, allow it
       if (isExamen) continue;
 
-      const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-      const conflictDays = sharedDays.map((d) => dayNames[d]).join(", ");
-      return `El aula "${existing.aula.name}" ya está ocupada por "${existing.asignatura.name}" los días ${conflictDays} en ese horario`;
+      return `El aula "${existing.aula.name}" ya está ocupada por "${existing.asignatura.name}" el ${conflictLabel} en ese horario`;
     }
   }
 
@@ -205,6 +268,7 @@ export async function createCursada(formData: FormData) {
     durationMinutes: parseInt(formData.get("durationMinutes") as string),
     notes: formData.get("notes") as string || null,
     weeklyRepetition: formData.get("weeklyRepetition") === "true",
+    eventDate: (formData.get("eventDate") as string) || null,
     commissionNumber: formData.get("commissionNumber") as string || null,
     examen: formData.get("examen") === "true",
     docenteIds: docenteIdsRaw ? JSON.parse(docenteIdsRaw) : [],
@@ -221,7 +285,9 @@ export async function createCursada(formData: FormData) {
     validated.data.startTime,
     validated.data.durationMinutes,
     validated.data.asignaturaId,
-    validated.data.examen
+    validated.data.examen,
+    validated.data.weeklyRepetition,
+    validated.data.eventDate ?? null
   );
   if (conflict) {
     return { error: { _form: [conflict] } };
@@ -236,6 +302,7 @@ export async function createCursada(formData: FormData) {
     durationMinutes: validated.data.durationMinutes,
     notes: validated.data.notes,
     weeklyRepetition: validated.data.weeklyRepetition,
+    eventDate: validated.data.weeklyRepetition ? null : validated.data.eventDate,
     commissionNumber: validated.data.commissionNumber,
     examen: validated.data.examen,
   }).returning();
@@ -269,6 +336,7 @@ export async function updateCursada(id: string, formData: FormData) {
     durationMinutes: parseInt(formData.get("durationMinutes") as string),
     notes: formData.get("notes") as string || null,
     weeklyRepetition: formData.get("weeklyRepetition") === "true",
+    eventDate: (formData.get("eventDate") as string) || null,
     commissionNumber: formData.get("commissionNumber") as string || null,
     examen: formData.get("examen") === "true",
     docenteIds: docenteIdsRaw ? JSON.parse(docenteIdsRaw) : [],
@@ -286,6 +354,8 @@ export async function updateCursada(id: string, formData: FormData) {
     validated.data.durationMinutes,
     validated.data.asignaturaId,
     validated.data.examen,
+    validated.data.weeklyRepetition,
+    validated.data.eventDate ?? null,
     id
   );
   if (conflict) {
@@ -303,6 +373,7 @@ export async function updateCursada(id: string, formData: FormData) {
       durationMinutes: validated.data.durationMinutes,
       notes: validated.data.notes,
       weeklyRepetition: validated.data.weeklyRepetition,
+      eventDate: validated.data.weeklyRepetition ? null : validated.data.eventDate,
       commissionNumber: validated.data.commissionNumber,
       examen: validated.data.examen,
       updatedAt: new Date(),
