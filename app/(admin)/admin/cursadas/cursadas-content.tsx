@@ -156,6 +156,8 @@ export function CursadasContent({
       {viewMode === "weekly" && (
         <CursadasWeekly
           data={filteredCursadas}
+          selectedDate={selectedDate}
+          onDateChange={setSelectedDate}
           carreras={carreras}
           asignaturas={asignaturas}
           docentes={docentes}
