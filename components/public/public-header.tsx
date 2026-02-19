@@ -12,7 +12,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { GraduationCap, LogIn, LogOut, Settings, User, BookOpen, ExternalLink } from "lucide-react";
+import { LogIn, LogOut, Settings, User, BookOpen, ExternalLink } from "lucide-react";
+import Image from "next/image";
 
 export function PublicHeader() {
   const router = useRouter();
@@ -24,11 +25,17 @@ export function PublicHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 m-2">
       <div className="container flex h-14 items-center justify-between">
         <Link href="/" className="flex items-center gap-2 font-semibold">
-          <GraduationCap className="h-6 w-6" />
-          <span className="hidden sm:inline">Gestión de Cursadas</span>
+          <Image
+            src="/logo.png"
+            alt="logo FCVS"
+            width={150}
+            height={46}
+            className="ml-auto"
+          />
+          {/* <span className="hidden sm:inline"> Facultad de Ciencias de la Vida y la Salud - UADER</span> */}
         </Link>
 
         <nav className="flex items-center gap-2">
@@ -77,13 +84,13 @@ export function PublicHeader() {
             </>
           ) : !isPending ? (
             <>
-              <Button variant="outline" size="sm" asChild>
+              <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
                 <a href="https://fcvsvirtual.uader.edu.ar/" target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Campus Virtual
                 </a>
               </Button>
-              <Button variant="outline" size="sm" asChild>
+              <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
                 <a href="https://guarani3w.uader.edu.ar/" target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="h-4 w-4 mr-2" />
                   SIU Guaraní

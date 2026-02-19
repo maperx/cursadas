@@ -105,9 +105,9 @@ export function CursadasContent({
         onViewModeChange={setViewMode}
       />
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Select value={filterCarrera} onValueChange={setFilterCarrera}>
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-full sm:w-[200px]">
             <SelectValue placeholder="Todas las carreras" />
           </SelectTrigger>
           <SelectContent>
@@ -120,7 +120,7 @@ export function CursadasContent({
           </SelectContent>
         </Select>
         <Select value={filterAula} onValueChange={setFilterAula}>
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-full sm:w-[200px]">
             <SelectValue placeholder="Todas las aulas" />
           </SelectTrigger>
           <SelectContent>
@@ -133,7 +133,7 @@ export function CursadasContent({
           </SelectContent>
         </Select>
         <Select value={filterExamen} onValueChange={setFilterExamen}>
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-full sm:w-[200px]">
             <SelectValue placeholder="Cursadas y exámenes" />
           </SelectTrigger>
           <SelectContent>

@@ -5,6 +5,7 @@ import { getAulas } from "@/actions/aulas";
 import { ClassCard } from "@/components/public/class-card";
 import { ClassFilters } from "@/components/public/class-filters";
 import { Spinner } from "@/components/ui/spinner";
+import Image from "next/image";
 
 interface HomePageProps {
   searchParams: Promise<{
@@ -69,13 +70,16 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">
-          Cursadas del Día
-        </h1>
-        <p className="text-muted-foreground">
-          Hoy es {todayName} - Consulta las cursadas disponibles
-        </p>
+      <div className="flex items-center space-x-2">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Cursadas y eventos
+          </h1>
+          <p className="text-muted-foreground">
+            Hoy es {todayName} - Consulta las cursadas disponibles. Si sos estudiante, podes registrarte para cargar tus cursadas.
+          </p>
+        </div>
+
       </div>
 
       <ClassFilters carreras={carreras} aulas={aulas} />

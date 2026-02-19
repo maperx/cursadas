@@ -61,7 +61,7 @@ export function ClassFilters({ carreras, aulas }: ClassFiltersProps) {
   return (
     <div className="flex flex-wrap gap-4 items-center">
       <Select value={currentDay} onValueChange={(v) => updateFilter("dia", v)}>
-        <SelectTrigger className="w-40">
+        <SelectTrigger className="w-full sm:w-40">
           <SelectValue placeholder="Día" />
         </SelectTrigger>
         <SelectContent>
@@ -77,7 +77,7 @@ export function ClassFilters({ carreras, aulas }: ClassFiltersProps) {
         value={currentCarrera}
         onValueChange={(v) => updateFilter("carrera", v)}
       >
-        <SelectTrigger className="w-48">
+        <SelectTrigger className="w-full sm:w-48">
           <SelectValue placeholder="Carrera" />
         </SelectTrigger>
         <SelectContent>
@@ -96,7 +96,7 @@ export function ClassFilters({ carreras, aulas }: ClassFiltersProps) {
       </Select>
 
       <Select value={currentAula} onValueChange={(v) => updateFilter("aula", v)}>
-        <SelectTrigger className="w-48">
+        <SelectTrigger className="w-full sm:w-48">
           <SelectValue placeholder="Aula" />
         </SelectTrigger>
         <SelectContent>
