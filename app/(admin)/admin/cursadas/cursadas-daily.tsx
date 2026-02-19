@@ -333,6 +333,11 @@ export function CursadasDaily({
                             .join(", ")}
                         </div>
                       )}
+                      {cursada.notes && (
+                        <div className="text-muted-foreground italic truncate">
+                          {cursada.notes}
+                        </div>
+                      )}
                       <Badge
                         className="mt-0.5 text-white text-[10px] px-1 py-0"
                         style={{ backgroundColor: cursada.carrera.color }}

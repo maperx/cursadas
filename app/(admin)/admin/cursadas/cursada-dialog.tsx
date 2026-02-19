@@ -113,7 +113,7 @@ export function CursadaDialog({
   const defaultStartTime = cursada ? formatTime(cursada.startTime) : "08:00";
   const defaultEndTime = cursada
     ? addMinutesToTime(formatTime(cursada.startTime), cursada.durationMinutes)
-    : "09:30";
+    : "10:00";
 
   const [startTime, setStartTime] = useState(defaultStartTime);
   const [endTime, setEndTime] = useState(defaultEndTime);

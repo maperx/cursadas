@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, MapPin, User, Users } from "lucide-react";
+import { Clock, MapPin, User, StickyNote } from "lucide-react";
 import { formatTime, addMinutesToTime, getDayName } from "@/lib/utils";
 
 interface ClassCardProps {
@@ -15,6 +15,7 @@ interface ClassCardProps {
     weeklyRepetition: boolean;
     eventDate: string | null;
     commissionNumber: string | null;
+    notes: string | null;
     asignatura: {
       name: string;
     };
@@ -96,6 +97,13 @@ export function ClassCard({ cursada, index = 0 }: ClassCardProps) {
             <div className="flex items-start gap-2 text-sm">
               <User className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
               <span className="line-clamp-2">{docenteNames}</span>
+            </div>
+          )}
+
+          {cursada.notes && (
+            <div className="flex items-start gap-2 text-sm">
+              <StickyNote className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+              <span className="line-clamp-3">{cursada.notes}</span>
             </div>
           )}
 

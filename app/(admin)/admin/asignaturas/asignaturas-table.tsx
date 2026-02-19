@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, Trash2 } from "lucide-react";
 import { deleteAsignatura } from "@/actions/asignaturas";
-import { format } from "date-fns";
 
 type Carrera = {
   id: string;
@@ -77,10 +76,10 @@ export function AsignaturasTable({ data, carreras, docentes }: AsignaturasTableP
       cell: ({ row }) => {
         if (!row.original.startDate && !row.original.endDate) return "-";
         const start = row.original.startDate
-          ? format(new Date(row.original.startDate), "dd/MM/yyyy")
+          ? row.original.startDate.split("-").reverse().join("/")
           : "";
         const end = row.original.endDate
-          ? format(new Date(row.original.endDate), "dd/MM/yyyy")
+          ? row.original.endDate.split("-").reverse().join("/")
           : "";
         return `${start} - ${end}`;
       },

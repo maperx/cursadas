@@ -185,6 +185,19 @@ export function CursadasTable({
       },
     },
     {
+      id: "notas",
+      accessorFn: (row) => row.notes,
+      header: "Notas",
+      cell: ({ row }) =>
+        row.original.notes ? (
+          <div className="max-w-[200px] truncate" title={row.original.notes}>
+            {row.original.notes}
+          </div>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        ),
+    },
+    {
       id: "actions",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">

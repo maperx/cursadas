@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, MapPin, User, XCircle } from "lucide-react";
+import { Clock, MapPin, User, XCircle, StickyNote } from "lucide-react";
 import { formatTime, addMinutesToTime, getDayName } from "@/lib/utils";
 import { darDeBajaInscripcion } from "@/actions/inscripciones";
 import { toast } from "@/components/ui/use-toast";
@@ -30,6 +30,7 @@ type Inscripcion = {
     durationMinutes: number;
     daysOfWeek: number[];
     commissionNumber: string | null;
+    notes: string | null;
     asignatura: {
       name: string;
     };
@@ -150,6 +151,13 @@ function InscripcionCard({
             <div className="flex items-start gap-2 text-sm">
               <User className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
               <span className="line-clamp-2">{docenteNames}</span>
+            </div>
+          )}
+
+          {cursada.notes && (
+            <div className="flex items-start gap-2 text-sm">
+              <StickyNote className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+              <span className="line-clamp-3">{cursada.notes}</span>
             </div>
           )}
 
