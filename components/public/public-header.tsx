@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { GraduationCap, LogIn, LogOut, Settings, User, BookOpen } from "lucide-react";
+import { GraduationCap, LogIn, LogOut, Settings, User, BookOpen, ExternalLink } from "lucide-react";
 
 export function PublicHeader() {
   const router = useRouter();
@@ -76,12 +76,26 @@ export function PublicHeader() {
               </DropdownMenu>
             </>
           ) : !isPending ? (
-            <Button size="sm" asChild>
-              <Link href="/login">
-                <LogIn className="h-4 w-4 mr-2" />
-                Ingresar
-              </Link>
-            </Button>
+            <>
+              <Button variant="outline" size="sm" asChild>
+                <a href="https://fcvsvirtual.uader.edu.ar/" target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Campus Virtual
+                </a>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <a href="https://guarani3w.uader.edu.ar/" target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  SIU Guaraní
+                </a>
+              </Button>
+              <Button size="sm" asChild>
+                <Link href="/login">
+                  <LogIn className="h-4 w-4 mr-2" />
+                  Ingresar
+                </Link>
+              </Button>
+            </>
           ) : null}
         </nav>
       </div>
