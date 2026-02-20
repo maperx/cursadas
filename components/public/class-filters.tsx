@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Select,
@@ -9,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { X, LayoutGrid, CalendarDays } from "lucide-react";
 
 interface ClassFiltersProps {
   carreras: {
@@ -22,6 +23,12 @@ interface ClassFiltersProps {
     name: string;
     building: string;
   }[];
+  asignaturas: {
+    id: string;
+    name: string;
+    carreraId: string;
+  }[];
+  todayDayOfWeek: number;
 }
 
 const DAYS = [
@@ -34,13 +41,26 @@ const DAYS = [
   { value: "0", label: "Domingo" },
 ];
 
-export function ClassFilters({ carreras, aulas }: ClassFiltersProps) {
+export function ClassFilters({
+  carreras,
+  aulas,
+  asignaturas,
+  todayDayOfWeek,
+}: ClassFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const currentDay = searchParams.get("dia") || "";
+  const currentDay = searchParams.get("dia") ?? String(todayDayOfWeek);
   const currentCarrera = searchParams.get("carrera") || "";
   const currentAula = searchParams.get("aula") || "";
+  const currentAsignatura = searchParams.get("asignatura") || "";
+  const currentVista = searchParams.get("vista") || "grilla";
+  const isSemanal = currentVista === "semanal";
+
+  const filteredAsignaturas = useMemo(() => {
+    if (!currentCarrera) return asignaturas;
+    return asignaturas.filter((a) => a.carreraId === currentCarrera);
+  }, [asignaturas, currentCarrera]);
 
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -49,29 +69,86 @@ export function ClassFilters({ carreras, aulas }: ClassFiltersProps) {
     } else {
       params.delete(key);
     }
+    // If changing carrera, clear asignatura if it no longer belongs
+    if (key === "carrera" && currentAsignatura) {
+      const stillValid = asignaturas.some(
+        (a) => a.id === currentAsignatura && (!value || a.carreraId === value)
+      );
+      if (!stillValid) {
+        params.delete("asignatura");
+      }
+    }
+    router.push(`/?${params.toString()}`);
+  };
+
+  const setVista = (vista: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (vista === "semanal") {
+      params.set("vista", "semanal");
+      params.delete("dia");
+    } else {
+      params.delete("vista");
+      params.delete("dia");
+    }
     router.push(`/?${params.toString()}`);
   };
 
   const clearFilters = () => {
-    router.push("/");
+    const params = new URLSearchParams();
+    if (isSemanal) {
+      params.set("vista", "semanal");
+    }
+    const qs = params.toString();
+    router.push(qs ? `/?${qs}` : "/");
   };
 
-  const hasFilters = currentDay || currentCarrera || currentAula;
+  const hasFilters =
+    searchParams.get("dia") !== null ||
+    currentCarrera ||
+    currentAula ||
+    currentAsignatura;
 
   return (
     <div className="flex flex-wrap gap-4 items-center">
-      <Select value={currentDay} onValueChange={(v) => updateFilter("dia", v)}>
-        <SelectTrigger className="w-full sm:w-40">
-          <SelectValue placeholder="Día" />
-        </SelectTrigger>
-        <SelectContent>
-          {DAYS.map((day) => (
-            <SelectItem key={day.value} value={day.value}>
-              {day.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {/* Vista toggle */}
+      <div className="flex rounded-md border">
+        <Button
+          variant={!isSemanal ? "default" : "ghost"}
+          size="sm"
+          className="rounded-r-none gap-1.5"
+          onClick={() => setVista("grilla")}
+        >
+          <LayoutGrid className="h-4 w-4" />
+          <span className="hidden sm:inline">Grilla</span>
+        </Button>
+        <Button
+          variant={isSemanal ? "default" : "ghost"}
+          size="sm"
+          className="rounded-l-none gap-1.5"
+          onClick={() => setVista("semanal")}
+        >
+          <CalendarDays className="h-4 w-4" />
+          <span className="hidden sm:inline">Semanal</span>
+        </Button>
+      </div>
+
+      {!isSemanal && (
+        <Select
+          value={currentDay}
+          onValueChange={(v) => updateFilter("dia", v)}
+        >
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue placeholder="Dia" />
+          </SelectTrigger>
+          <SelectContent>
+            {DAYS.map((day) => (
+              <SelectItem key={day.value} value={day.value}>
+                {day.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
 
       <Select
         value={currentCarrera}
@@ -95,7 +172,26 @@ export function ClassFilters({ carreras, aulas }: ClassFiltersProps) {
         </SelectContent>
       </Select>
 
-      <Select value={currentAula} onValueChange={(v) => updateFilter("aula", v)}>
+      <Select
+        value={currentAsignatura}
+        onValueChange={(v) => updateFilter("asignatura", v)}
+      >
+        <SelectTrigger className="w-full sm:w-52">
+          <SelectValue placeholder="Asignatura" />
+        </SelectTrigger>
+        <SelectContent>
+          {filteredAsignaturas.map((asignatura) => (
+            <SelectItem key={asignatura.id} value={asignatura.id}>
+              {asignatura.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={currentAula}
+        onValueChange={(v) => updateFilter("aula", v)}
+      >
         <SelectTrigger className="w-full sm:w-48">
           <SelectValue placeholder="Aula" />
         </SelectTrigger>
