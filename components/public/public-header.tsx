@@ -85,7 +85,7 @@ export function PublicHeader() {
           ) : !isPending ? (
             <>
               <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
-                <a href="https://fcvsvirtual.uader.edu.ar/" target="_blank" rel="noopener noreferrer">
+                <a href="https://fcvsvirtual.entrerios.gov.ar/" target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Campus Virtual
                 </a>

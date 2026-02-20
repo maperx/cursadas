@@ -300,6 +300,41 @@ export function CursadaDialog({
             </div>
           </div>
 
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="weeklyRepetition"
+                checked={weeklyRepetition}
+                onCheckedChange={(checked) => {
+                  const isWeekly = checked as boolean;
+                  setWeeklyRepetition(isWeekly);
+                  if (isWeekly) {
+                    setEventDate("");
+                  } else {
+                    setSelectedDays([]);
+                  }
+                }}
+                disabled={isLoading}
+              />
+              <label htmlFor="weeklyRepetition" className="text-sm cursor-pointer">
+                Se repite semanalmente
+              </label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="examen"
+                checked={examen}
+                onCheckedChange={(checked) =>
+                  setExamen(checked as boolean)
+                }
+                disabled={isLoading}
+              />
+              <label htmlFor="examen" className="text-sm cursor-pointer">
+                Es examen
+              </label>
+            </div>
+          </div>
+
           {weeklyRepetition ? (
             <div className="space-y-2">
               <Label>Días de la semana</Label>
@@ -369,41 +404,6 @@ export function CursadaDialog({
                   Duración: {calculatedDuration} min
                 </p>
               )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="weeklyRepetition"
-                checked={weeklyRepetition}
-                onCheckedChange={(checked) => {
-                  const isWeekly = checked as boolean;
-                  setWeeklyRepetition(isWeekly);
-                  if (isWeekly) {
-                    setEventDate("");
-                  } else {
-                    setSelectedDays([]);
-                  }
-                }}
-                disabled={isLoading}
-              />
-              <label htmlFor="weeklyRepetition" className="text-sm cursor-pointer">
-                Se repite semanalmente
-              </label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="examen"
-                checked={examen}
-                onCheckedChange={(checked) =>
-                  setExamen(checked as boolean)
-                }
-                disabled={isLoading}
-              />
-              <label htmlFor="examen" className="text-sm cursor-pointer">
-                Es examen
-              </label>
             </div>
           </div>
 
