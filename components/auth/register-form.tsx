@@ -41,6 +41,7 @@ export function RegisterForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
   const {
     register,
@@ -61,13 +62,7 @@ export function RegisterForm() {
         },
         {
           onSuccess: () => {
-            toast({
-              title: "Registro exitoso",
-              description: "Tu cuenta ha sido creada correctamente",
-              variant: "success",
-            });
-            router.push("/");
-            router.refresh();
+            setRegistrationSuccess(true);
           },
           onError: (ctx) => {
             toast({
@@ -113,6 +108,30 @@ export function RegisterForm() {
       setIsGoogleLoading(false);
     }
   };
+
+  if (registrationSuccess) {
+    return (
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold text-center">
+            Verificá tu email
+          </CardTitle>
+          <CardDescription className="text-center">
+            Te enviamos un email de verificación. Revisá tu bandeja de entrada y
+            hacé clic en el enlace para activar tu cuenta.
+          </CardDescription>
+        </CardHeader>
+        <CardFooter className="flex justify-center">
+          <p className="text-sm text-muted-foreground">
+            ¿Ya verificaste?{" "}
+            <Link href="/login" className="text-primary hover:underline">
+              Iniciar Sesión
+            </Link>
+          </p>
+        </CardFooter>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full max-w-md">

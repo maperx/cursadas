@@ -24,7 +24,12 @@ export async function proxy(request: NextRequest) {
   }
 
   // Redirect logged-in users away from auth pages
-  if (pathname === "/login" || pathname === "/register") {
+  if (
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/forgot-password" ||
+    pathname === "/reset-password"
+  ) {
     if (session) {
       return NextResponse.redirect(new URL("/", request.url));
     }
@@ -34,5 +39,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/mis-cursadas/:path*", "/login", "/register"],
+  matcher: ["/admin/:path*", "/mis-cursadas/:path*", "/login", "/register", "/forgot-password", "/reset-password"],
 };
