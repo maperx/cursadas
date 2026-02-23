@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getCursadasByFilters, hasExamenes } from "@/actions/cursadas";
+import { getCursadasByFilters, hasExamenes, hasExamenesForDay } from "@/actions/cursadas";
 import { getCarreras } from "@/actions/carreras";
 import { getAulas } from "@/actions/aulas";
 import { getAsignaturas } from "@/actions/asignaturas";
@@ -79,6 +79,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   // Get current day of week (0 = Sunday, 1 = Monday, etc.)
   const today = new Date().getDay();
+  const selectedDay = resolvedSearchParams.dia ? parseInt(resolvedSearchParams.dia) : today;
+  const isSemanal = resolvedSearchParams.vista === "semanal";
+
+  // Auto-detect default tipo: if selected day has exams, default to "examenes"
+  const dayHasExams = !isSemanal && hasExams ? await hasExamenesForDay(selectedDay) : false;
+  const defaultTipo = dayHasExams ? "examenes" : "cursadas";
   const todayName = [
     "Domingo",
     "Lunes",
@@ -116,6 +122,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         asignaturas={asignaturasForFilters}
         todayDayOfWeek={today}
         hasExamenes={hasExams}
+        defaultTipo={defaultTipo}
       />
 
       <Suspense
@@ -127,7 +134,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       >
         <CursadasGrid searchParams={{
           ...resolvedSearchParams,
-          tipo: resolvedSearchParams.tipo ?? "cursadas",
+          tipo: resolvedSearchParams.tipo ?? defaultTipo,
         }} />
       </Suspense>
     </div>
