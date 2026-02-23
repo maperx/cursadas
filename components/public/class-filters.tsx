@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { X, LayoutGrid, CalendarDays } from "lucide-react";
+import { X, LayoutGrid, CalendarDays, BookOpen, FileText } from "lucide-react";
 
 interface ClassFiltersProps {
   carreras: {
@@ -29,6 +29,7 @@ interface ClassFiltersProps {
     carreraId: string;
   }[];
   todayDayOfWeek: number;
+  hasExamenes: boolean;
 }
 
 const DAYS = [
@@ -46,6 +47,7 @@ export function ClassFilters({
   aulas,
   asignaturas,
   todayDayOfWeek,
+  hasExamenes,
 }: ClassFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -56,6 +58,8 @@ export function ClassFilters({
   const currentAsignatura = searchParams.get("asignatura") || "";
   const currentVista = searchParams.get("vista") || "grilla";
   const isSemanal = currentVista === "semanal";
+  const defaultTipo = "cursadas";
+  const currentTipo = searchParams.get("tipo") ?? defaultTipo;
 
   const filteredAsignaturas = useMemo(() => {
     if (!currentCarrera) return asignaturas;
@@ -93,6 +97,16 @@ export function ClassFilters({
     router.push(`/?${params.toString()}`);
   };
 
+  const setTipo = (tipo: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (tipo === defaultTipo) {
+      params.delete("tipo");
+    } else {
+      params.set("tipo", tipo);
+    }
+    router.push(`/?${params.toString()}`);
+  };
+
   const clearFilters = () => {
     const params = new URLSearchParams();
     if (isSemanal) {
@@ -106,7 +120,8 @@ export function ClassFilters({
     searchParams.get("dia") !== null ||
     currentCarrera ||
     currentAula ||
-    currentAsignatura;
+    currentAsignatura ||
+    searchParams.get("tipo") !== null;
 
   return (
     <div className="flex flex-wrap gap-4 items-center">
@@ -129,6 +144,28 @@ export function ClassFilters({
         >
           <CalendarDays className="h-4 w-4" />
           <span className="hidden sm:inline">Semanal</span>
+        </Button>
+      </div>
+
+      {/* Tipo toggle */}
+      <div className="flex rounded-md border">
+        <Button
+          variant={currentTipo === "cursadas" ? "default" : "ghost"}
+          size="sm"
+          className="rounded-r-none gap-1.5"
+          onClick={() => setTipo("cursadas")}
+        >
+          <BookOpen className="h-4 w-4" />
+          <span className="hidden sm:inline">Cursadas</span>
+        </Button>
+        <Button
+          variant={currentTipo === "examenes" ? "default" : "ghost"}
+          size="sm"
+          className="rounded-l-none gap-1.5"
+          onClick={() => setTipo("examenes")}
+        >
+          <FileText className="h-4 w-4" />
+          <span className="hidden sm:inline">Examenes</span>
         </Button>
       </div>
 

@@ -88,11 +88,20 @@ export async function getCursadasByDay(dayOfWeek: number) {
   );
 }
 
+export async function hasExamenes(): Promise<boolean> {
+  const result = await db.query.cursadas.findFirst({
+    where: eq(cursadas.examen, true),
+    columns: { id: true },
+  });
+  return !!result;
+}
+
 export async function getCursadasByFilters(filters: {
   dayOfWeek?: number;
   carreraId?: string;
   asignaturaId?: string;
   aulaId?: string;
+  examen?: boolean;
 }) {
   const allCursadas = await db.query.cursadas.findMany({
     with: {
@@ -125,6 +134,9 @@ export async function getCursadasByFilters(filters: {
       return false;
     }
     if (filters.aulaId && cursada.aulaId !== filters.aulaId) {
+      return false;
+    }
+    if (filters.examen !== undefined && cursada.examen !== filters.examen) {
       return false;
     }
     // Exclude weekly cursadas outside their asignatura's date range
