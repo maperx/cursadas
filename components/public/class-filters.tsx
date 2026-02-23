@@ -30,6 +30,7 @@ interface ClassFiltersProps {
   }[];
   todayDayOfWeek: number;
   hasExamenes: boolean;
+  defaultTipo: string;
 }
 
 const DAYS = [
@@ -48,6 +49,7 @@ export function ClassFilters({
   asignaturas,
   todayDayOfWeek,
   hasExamenes,
+  defaultTipo,
 }: ClassFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -58,7 +60,6 @@ export function ClassFilters({
   const currentAsignatura = searchParams.get("asignatura") || "";
   const currentVista = searchParams.get("vista") || "grilla";
   const isSemanal = currentVista === "semanal";
-  const defaultTipo = "cursadas";
   const currentTipo = searchParams.get("tipo") ?? defaultTipo;
 
   const filteredAsignaturas = useMemo(() => {
@@ -82,6 +83,10 @@ export function ClassFilters({
         params.delete("asignatura");
       }
     }
+    // If changing day, clear tipo so auto-detection kicks in
+    if (key === "dia") {
+      params.delete("tipo");
+    }
     router.push(`/?${params.toString()}`);
   };
 
@@ -94,16 +99,13 @@ export function ClassFilters({
       params.delete("vista");
       params.delete("dia");
     }
+    params.delete("tipo");
     router.push(`/?${params.toString()}`);
   };
 
   const setTipo = (tipo: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (tipo === defaultTipo) {
-      params.delete("tipo");
-    } else {
-      params.set("tipo", tipo);
-    }
+    params.set("tipo", tipo);
     router.push(`/?${params.toString()}`);
   };
 
