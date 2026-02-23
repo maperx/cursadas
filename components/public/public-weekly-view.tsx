@@ -29,7 +29,7 @@ type Cursada = {
     endDate: string | null;
   };
   cursadaDocentes: {
-    docente: { id: string; name: string };
+    user: { id: string; name: string };
   }[];
 };
 

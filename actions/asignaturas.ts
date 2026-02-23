@@ -11,7 +11,7 @@ const asignaturaSchema = z.object({
   carreraId: z.string().uuid("Carrera inválida"),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
-  docenteIds: z.array(z.string().uuid()).optional(),
+  docenteIds: z.array(z.string()).optional(),
 });
 
 export async function getAsignaturas() {
@@ -20,7 +20,7 @@ export async function getAsignaturas() {
       carrera: true,
       asignaturaDocentes: {
         with: {
-          docente: true,
+          user: true,
         },
       },
     },
@@ -35,7 +35,7 @@ export async function getAsignatura(id: string) {
       carrera: true,
       asignaturaDocentes: {
         with: {
-          docente: true,
+          user: true,
         },
       },
     },
@@ -74,9 +74,9 @@ export async function createAsignatura(formData: FormData) {
   // Add docentes if any
   if (validated.data.docenteIds && validated.data.docenteIds.length > 0) {
     await db.insert(asignaturaDocentes).values(
-      validated.data.docenteIds.map((docenteId) => ({
+      validated.data.docenteIds.map((userId) => ({
         asignaturaId: newAsignatura.id,
-        docenteId,
+        userId,
       }))
     );
   }
@@ -117,9 +117,9 @@ export async function updateAsignatura(id: string, formData: FormData) {
 
   if (validated.data.docenteIds && validated.data.docenteIds.length > 0) {
     await db.insert(asignaturaDocentes).values(
-      validated.data.docenteIds.map((docenteId) => ({
+      validated.data.docenteIds.map((userId) => ({
         asignaturaId: id,
-        docenteId,
+        userId,
       }))
     );
   }

@@ -55,7 +55,7 @@ type Cursada = {
   carrera: Carrera;
   asignatura: { id: string; name: string; startDate: string | null; endDate: string | null };
   cursadaDocentes: {
-    docente: Docente;
+    user: Docente;
   }[];
 };
 
@@ -175,7 +175,7 @@ export function CursadasTable({
       header: "Docentes",
       cell: ({ row }) => {
         const docenteNames = row.original.cursadaDocentes
-          .map((cd) => cd.docente.name)
+          .map((cd) => cd.user.name)
           .join(", ");
         return (
           <div className="max-w-[150px] truncate" title={docenteNames}>
@@ -205,7 +205,7 @@ export function CursadasTable({
             cursada={{
               ...row.original,
               docenteIds: row.original.cursadaDocentes.map(
-                (cd) => cd.docente.id
+                (cd) => cd.user.id
               ),
             }}
             carreras={carreras}

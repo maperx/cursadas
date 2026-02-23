@@ -17,6 +17,20 @@ export async function getUser(id: string) {
   });
 }
 
+export async function getDocentes() {
+  return await db.query.user.findMany({
+    where: eq(user.role, "docente"),
+    orderBy: (user, { asc }) => [asc(user.name)],
+  });
+}
+
+export async function getEstudiantes() {
+  return await db.query.user.findMany({
+    where: eq(user.role, "estudiante"),
+    orderBy: (user, { asc }) => [asc(user.name)],
+  });
+}
+
 export async function updateUserRole(userId: string, role: string) {
   await db
     .update(user)

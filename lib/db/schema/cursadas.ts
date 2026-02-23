@@ -12,7 +12,7 @@ import { relations } from "drizzle-orm";
 import { aulas } from "./aulas";
 import { carreras } from "./carreras";
 import { asignaturas } from "./asignaturas";
-import { docentes } from "./docentes";
+import { user } from "./auth";
 import { inscripciones } from "./inscripciones";
 
 export const cursadas = pgTable("cursadas", {
@@ -61,9 +61,9 @@ export const cursadaDocentes = pgTable("cursada_docentes", {
   cursadaId: uuid("cursada_id")
     .notNull()
     .references(() => cursadas.id, { onDelete: "cascade" }),
-  docenteId: uuid("docente_id")
+  userId: text("user_id")
     .notNull()
-    .references(() => docentes.id, { onDelete: "cascade" }),
+    .references(() => user.id, { onDelete: "cascade" }),
 });
 
 export const cursadaDocentesRelations = relations(
@@ -73,9 +73,9 @@ export const cursadaDocentesRelations = relations(
       fields: [cursadaDocentes.cursadaId],
       references: [cursadas.id],
     }),
-    docente: one(docentes, {
-      fields: [cursadaDocentes.docenteId],
-      references: [docentes.id],
+    user: one(user, {
+      fields: [cursadaDocentes.userId],
+      references: [user.id],
     }),
   })
 );

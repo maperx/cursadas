@@ -42,13 +42,13 @@ type Cursada = {
 interface InscripcionDialogProps {
   children: React.ReactNode;
   cursadasDisponibles: Cursada[];
-  estudianteId: string;
+  userId: string;
 }
 
 export function InscripcionDialog({
   children,
   cursadasDisponibles,
-  estudianteId,
+  userId,
 }: InscripcionDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -64,7 +64,7 @@ export function InscripcionDialog({
   const handleInscripcion = async (cursadaId: string) => {
     setIsLoading(cursadaId);
     try {
-      const result = await createInscripcion(estudianteId, cursadaId);
+      const result = await createInscripcion(userId, cursadaId);
       if (result.error) {
         toast({
           title: "Error",

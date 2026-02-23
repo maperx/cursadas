@@ -14,12 +14,28 @@ export async function proxy(request: NextRequest) {
     if (!session) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
+    if (session.user.role !== "admin") {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
   }
 
   // Protected student routes
   if (pathname.startsWith("/mis-cursadas")) {
     if (!session) {
       return NextResponse.redirect(new URL("/login", request.url));
+    }
+    if (session.user.role !== "estudiante") {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+  }
+
+  // Protected docente routes
+  if (pathname.startsWith("/mis-catedras")) {
+    if (!session) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+    if (session.user.role !== "docente") {
+      return NextResponse.redirect(new URL("/", request.url));
     }
   }
 
@@ -39,5 +55,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/mis-cursadas/:path*", "/login", "/register", "/forgot-password", "/reset-password"],
+  matcher: ["/admin/:path*", "/mis-cursadas/:path*", "/mis-catedras/:path*", "/login", "/register", "/forgot-password", "/reset-password"],
 };

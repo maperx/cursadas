@@ -2,7 +2,7 @@ import { pgTable, text, timestamp, uuid, date } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { carreras } from "./carreras";
 import { cursadas } from "./cursadas";
-import { docentes } from "./docentes";
+import { user } from "./auth";
 
 export const asignaturas = pgTable("asignaturas", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -31,9 +31,9 @@ export const asignaturaDocentes = pgTable("asignatura_docentes", {
   asignaturaId: uuid("asignatura_id")
     .notNull()
     .references(() => asignaturas.id, { onDelete: "cascade" }),
-  docenteId: uuid("docente_id")
+  userId: text("user_id")
     .notNull()
-    .references(() => docentes.id, { onDelete: "cascade" }),
+    .references(() => user.id, { onDelete: "cascade" }),
 });
 
 export const asignaturaDocentesRelations = relations(
@@ -43,9 +43,9 @@ export const asignaturaDocentesRelations = relations(
       fields: [asignaturaDocentes.asignaturaId],
       references: [asignaturas.id],
     }),
-    docente: one(docentes, {
-      fields: [asignaturaDocentes.docenteId],
-      references: [docentes.id],
+    user: one(user, {
+      fields: [asignaturaDocentes.userId],
+      references: [user.id],
     }),
   })
 );

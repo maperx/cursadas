@@ -6,6 +6,7 @@ import { cursadas, cursadaDocentes, asignaturas } from "@/lib/db/schema";
 import { eq, and, ne } from "drizzle-orm";
 import { z } from "zod";
 
+
 const cursadaSchema = z.object({
   aulaId: z.string().uuid("Aula inválida"),
   carreraId: z.string().uuid("Carrera inválida"),
@@ -18,7 +19,7 @@ const cursadaSchema = z.object({
   eventDate: z.string().nullable().optional(),
   commissionNumber: z.string().optional().nullable(),
   examen: z.boolean().default(false),
-  docenteIds: z.array(z.string().uuid()).optional(),
+  docenteIds: z.array(z.string()).optional(),
 }).superRefine((data, ctx) => {
   if (data.weeklyRepetition && data.daysOfWeek.length === 0) {
     ctx.addIssue({
@@ -44,7 +45,7 @@ export async function getCursadas() {
       asignatura: true,
       cursadaDocentes: {
         with: {
-          docente: true,
+          user: true,
         },
       },
     },
@@ -61,11 +62,28 @@ export async function getCursada(id: string) {
       asignatura: true,
       cursadaDocentes: {
         with: {
-          docente: true,
+          user: true,
         },
       },
     },
   });
+}
+
+export async function getCursadasByDocente(userId: string) {
+  const results = await db.query.cursadaDocentes.findMany({
+    where: eq(cursadaDocentes.userId, userId),
+    with: {
+      cursada: {
+        with: {
+          aula: true,
+          carrera: true,
+          asignatura: true,
+          cursadaDocentes: { with: { user: true } },
+        },
+      },
+    },
+  });
+  return results.map((r) => r.cursada);
 }
 
 export async function getCursadasByDay(dayOfWeek: number) {
@@ -77,7 +95,7 @@ export async function getCursadasByDay(dayOfWeek: number) {
       asignatura: true,
       cursadaDocentes: {
         with: {
-          docente: true,
+          user: true,
         },
       },
     },
@@ -132,7 +150,7 @@ export async function getCursadasByFilters(filters: {
       asignatura: true,
       cursadaDocentes: {
         with: {
-          docente: true,
+          user: true,
         },
       },
     },
@@ -345,9 +363,9 @@ export async function createCursada(formData: FormData) {
   // Add docentes if any
   if (validated.data.docenteIds && validated.data.docenteIds.length > 0) {
     await db.insert(cursadaDocentes).values(
-      validated.data.docenteIds.map((docenteId) => ({
+      validated.data.docenteIds.map((userId) => ({
         cursadaId: newCursada.id,
-        docenteId,
+        userId,
       }))
     );
   }
@@ -420,9 +438,9 @@ export async function updateCursada(id: string, formData: FormData) {
 
   if (validated.data.docenteIds && validated.data.docenteIds.length > 0) {
     await db.insert(cursadaDocentes).values(
-      validated.data.docenteIds.map((docenteId) => ({
+      validated.data.docenteIds.map((userId) => ({
         cursadaId: id,
-        docenteId,
+        userId,
       }))
     );
   }

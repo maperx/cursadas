@@ -1,9 +1,8 @@
 import "dotenv/config";
 import { db } from "./index";
 import {
+  user,
   carreras,
-  docentes,
-  estudiantes,
   aulas,
   asignaturas,
   cursadas,
@@ -26,27 +25,27 @@ async function seed() {
 
   console.log("Created carreras");
 
-  // Create Docentes
+  // Create Users with role "docente"
   const [doc1, doc2, doc3, doc4] = await db
-    .insert(docentes)
+    .insert(user)
     .values([
-      { name: "Dr. Juan Pérez", email: "jperez@universidad.edu" },
-      { name: "Ing. María García", email: "mgarcia@universidad.edu" },
-      { name: "Lic. Carlos López", email: "clopez@universidad.edu" },
-      { name: "Mg. Ana Martínez", email: "amartinez@universidad.edu" },
+      { id: "docente-1", name: "Dr. Juan Pérez", email: "jperez@universidad.edu", role: "docente", emailVerified: true },
+      { id: "docente-2", name: "Ing. María García", email: "mgarcia@universidad.edu", role: "docente", emailVerified: true },
+      { id: "docente-3", name: "Lic. Carlos López", email: "clopez@universidad.edu", role: "docente", emailVerified: true },
+      { id: "docente-4", name: "Mg. Ana Martínez", email: "amartinez@universidad.edu", role: "docente", emailVerified: true },
     ])
     .returning();
 
-  console.log("Created docentes");
+  console.log("Created docente users");
 
-  // Create Estudiantes
-  await db.insert(estudiantes).values([
-    { name: "Pedro Sánchez", email: "psanchez@estudiantes.edu" },
-    { name: "Laura Rodríguez", email: "lrodriguez@estudiantes.edu" },
-    { name: "Miguel Torres", email: "mtorres@estudiantes.edu" },
+  // Create Users with role "estudiante"
+  await db.insert(user).values([
+    { id: "estudiante-1", name: "Pedro Sánchez", email: "psanchez@estudiantes.edu", role: "estudiante", emailVerified: true },
+    { id: "estudiante-2", name: "Laura Rodríguez", email: "lrodriguez@estudiantes.edu", role: "estudiante", emailVerified: true },
+    { id: "estudiante-3", name: "Miguel Torres", email: "mtorres@estudiantes.edu", role: "estudiante", emailVerified: true },
   ]);
 
-  console.log("Created estudiantes");
+  console.log("Created estudiante users");
 
   // Create Aulas
   const [aula1, aula2, aula3, aula4] = await db
@@ -96,10 +95,10 @@ async function seed() {
 
   // Link asignaturas with docentes
   await db.insert(asignaturaDocentes).values([
-    { asignaturaId: asig1.id, docenteId: doc1.id },
-    { asignaturaId: asig2.id, docenteId: doc2.id },
-    { asignaturaId: asig3.id, docenteId: doc3.id },
-    { asignaturaId: asig4.id, docenteId: doc4.id },
+    { asignaturaId: asig1.id, userId: doc1.id },
+    { asignaturaId: asig2.id, userId: doc2.id },
+    { asignaturaId: asig3.id, userId: doc3.id },
+    { asignaturaId: asig4.id, userId: doc4.id },
   ]);
 
   console.log("Linked asignaturas with docentes");
@@ -156,10 +155,10 @@ async function seed() {
 
   // Link cursadas with docentes
   await db.insert(cursadaDocentes).values([
-    { cursadaId: curs1.id, docenteId: doc1.id },
-    { cursadaId: curs2.id, docenteId: doc2.id },
-    { cursadaId: curs3.id, docenteId: doc3.id },
-    { cursadaId: curs4.id, docenteId: doc4.id },
+    { cursadaId: curs1.id, userId: doc1.id },
+    { cursadaId: curs2.id, userId: doc2.id },
+    { cursadaId: curs3.id, userId: doc3.id },
+    { cursadaId: curs4.id, userId: doc4.id },
   ]);
 
   console.log("Linked cursadas with docentes");

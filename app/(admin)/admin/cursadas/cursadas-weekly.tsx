@@ -40,7 +40,7 @@ type Cursada = {
   carrera: Carrera;
   asignatura: { id: string; name: string; startDate: string | null; endDate: string | null };
   cursadaDocentes: {
-    docente: { id: string; name: string; email: string };
+    user: { id: string; name: string; email: string };
   }[];
 };
 
@@ -354,7 +354,7 @@ export function CursadasWeekly({
                       cursada={{
                         ...cursada,
                         docenteIds: cursada.cursadaDocentes.map(
-                          (cd) => cd.docente.id
+                          (cd) => cd.user.id
                         ),
                       }}
                       carreras={carreras}

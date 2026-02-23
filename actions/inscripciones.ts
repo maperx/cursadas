@@ -8,7 +8,7 @@ import { eq, and } from "drizzle-orm";
 export async function getInscripciones() {
   return await db.query.inscripciones.findMany({
     with: {
-      estudiante: true,
+      user: true,
       cursada: {
         with: {
           asignatura: true,
@@ -21,9 +21,9 @@ export async function getInscripciones() {
   });
 }
 
-export async function getInscripcionesByEstudiante(estudianteId: string) {
+export async function getInscripcionesByUser(userId: string) {
   return await db.query.inscripciones.findMany({
-    where: eq(inscripciones.estudianteId, estudianteId),
+    where: eq(inscripciones.userId, userId),
     with: {
       cursada: {
         with: {
@@ -32,7 +32,7 @@ export async function getInscripcionesByEstudiante(estudianteId: string) {
           aula: true,
           cursadaDocentes: {
             with: {
-              docente: true,
+              user: true,
             },
           },
         },
@@ -42,11 +42,11 @@ export async function getInscripcionesByEstudiante(estudianteId: string) {
   });
 }
 
-export async function createInscripcion(estudianteId: string, cursadaId: string) {
+export async function createInscripcion(userId: string, cursadaId: string) {
   // Check if already enrolled
   const existing = await db.query.inscripciones.findFirst({
     where: and(
-      eq(inscripciones.estudianteId, estudianteId),
+      eq(inscripciones.userId, userId),
       eq(inscripciones.cursadaId, cursadaId)
     ),
   });
@@ -67,7 +67,7 @@ export async function createInscripcion(estudianteId: string, cursadaId: string)
   }
 
   await db.insert(inscripciones).values({
-    estudianteId,
+    userId,
     cursadaId,
   });
 

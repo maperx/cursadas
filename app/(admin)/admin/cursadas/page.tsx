@@ -1,7 +1,7 @@
 import { getCursadas } from "@/actions/cursadas";
 import { getCarreras } from "@/actions/carreras";
 import { getAsignaturas } from "@/actions/asignaturas";
-import { getDocentes } from "@/actions/docentes";
+import { getDocentes } from "@/actions/users";
 import { getAulas } from "@/actions/aulas";
 import { CursadasContent } from "./cursadas-content";
 

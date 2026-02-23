@@ -9,8 +9,6 @@ import {
   GraduationCap,
   Home,
   LayoutDashboard,
-  School,
-  Users,
   UserCog,
   ClipboardList,
   DoorOpen,
@@ -31,16 +29,6 @@ const navItems = [
     title: "Asignaturas",
     href: "/admin/asignaturas",
     icon: BookOpen,
-  },
-  {
-    title: "Docentes",
-    href: "/admin/docentes",
-    icon: School,
-  },
-  {
-    title: "Estudiantes",
-    href: "/admin/estudiantes",
-    icon: Users,
   },
   {
     title: "Aulas",

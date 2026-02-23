@@ -49,6 +49,14 @@ export function PublicHeader() {
                   </Link>
                 </Button>
               )}
+              {session.user.role === "docente" && (
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/mis-catedras">
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    Mis Cátedras
+                  </Link>
+                </Button>
+              )}
               {session.user.role === "admin" && (
                 <Button variant="ghost" size="sm" asChild>
                   <Link href="/admin">

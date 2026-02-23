@@ -12,12 +12,12 @@ import { es } from "date-fns/locale";
 
 type Inscripcion = {
   id: string;
-  estudianteId: string;
+  userId: string;
   cursadaId: string;
   status: "activa" | "baja";
   createdAt: Date;
   updatedAt: Date;
-  estudiante: {
+  user: {
     id: string;
     name: string;
     email: string;
@@ -47,9 +47,9 @@ const columns: ColumnDef<Inscripcion>[] = [
     header: "Estudiante",
     cell: ({ row }) => (
       <div>
-        <div className="font-medium">{row.original.estudiante.name}</div>
+        <div className="font-medium">{row.original.user.name}</div>
         <div className="text-xs text-muted-foreground">
-          {row.original.estudiante.email}
+          {row.original.user.email}
         </div>
       </div>
     ),
@@ -101,7 +101,7 @@ const columns: ColumnDef<Inscripcion>[] = [
     cell: ({ row }) => (
       <DeleteDialog
         title="Eliminar Inscripción"
-        description={`¿Estás seguro de que deseas eliminar la inscripción de "${row.original.estudiante.name}" en "${row.original.cursada.asignatura.name}"?`}
+        description={`¿Estás seguro de que deseas eliminar la inscripción de "${row.original.user.name}" en "${row.original.cursada.asignatura.name}"?`}
         onConfirm={() => deleteInscripcion(row.original.id)}
       >
         <Button variant="ghost" size="icon">

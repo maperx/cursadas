@@ -31,7 +31,7 @@ type Asignatura = {
   updatedAt: Date;
   carrera: Carrera;
   asignaturaDocentes: {
-    docente: Docente;
+    user: Docente;
   }[];
 };
 
@@ -65,7 +65,7 @@ export function AsignaturasTable({ data, carreras, docentes }: AsignaturasTableP
       header: "Docentes",
       cell: ({ row }) => {
         const docenteNames = row.original.asignaturaDocentes
-          .map((ad) => ad.docente.name)
+          .map((ad) => ad.user.name)
           .join(", ");
         return docenteNames || "-";
       },
@@ -91,7 +91,7 @@ export function AsignaturasTable({ data, carreras, docentes }: AsignaturasTableP
           <AsignaturaDialog
             asignatura={{
               ...row.original,
-              docenteIds: row.original.asignaturaDocentes.map((ad) => ad.docente.id),
+              docenteIds: row.original.asignaturaDocentes.map((ad) => ad.user.id),
             }}
             carreras={carreras}
             docentes={docentes}

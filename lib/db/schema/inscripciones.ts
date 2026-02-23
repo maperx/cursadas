@@ -1,6 +1,6 @@
-import { pgTable, timestamp, uuid, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, pgEnum } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { estudiantes } from "./estudiantes";
+import { user } from "./auth";
 import { cursadas } from "./cursadas";
 
 export const inscripcionStatusEnum = pgEnum("inscripcion_status", [
@@ -10,9 +10,9 @@ export const inscripcionStatusEnum = pgEnum("inscripcion_status", [
 
 export const inscripciones = pgTable("inscripciones", {
   id: uuid("id").primaryKey().defaultRandom(),
-  estudianteId: uuid("estudiante_id")
+  userId: text("user_id")
     .notNull()
-    .references(() => estudiantes.id, { onDelete: "cascade" }),
+    .references(() => user.id, { onDelete: "cascade" }),
   cursadaId: uuid("cursada_id")
     .notNull()
     .references(() => cursadas.id, { onDelete: "cascade" }),
@@ -22,9 +22,9 @@ export const inscripciones = pgTable("inscripciones", {
 });
 
 export const inscripcionesRelations = relations(inscripciones, ({ one }) => ({
-  estudiante: one(estudiantes, {
-    fields: [inscripciones.estudianteId],
-    references: [estudiantes.id],
+  user: one(user, {
+    fields: [inscripciones.userId],
+    references: [user.id],
   }),
   cursada: one(cursadas, {
     fields: [inscripciones.cursadaId],

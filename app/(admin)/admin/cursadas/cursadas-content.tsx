@@ -57,7 +57,7 @@ type Cursada = {
   carrera: Carrera;
   asignatura: { id: string; name: string; startDate: string | null; endDate: string | null };
   cursadaDocentes: {
-    docente: Docente;
+    user: Docente;
   }[];
 };
 

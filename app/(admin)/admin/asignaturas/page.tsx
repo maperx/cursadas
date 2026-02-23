@@ -1,6 +1,6 @@
 import { getAsignaturas } from "@/actions/asignaturas";
 import { getCarreras } from "@/actions/carreras";
-import { getDocentes } from "@/actions/docentes";
+import { getDocentes } from "@/actions/users";
 import { AsignaturasTable } from "./asignaturas-table";
 import { AsignaturaDialog } from "./asignatura-dialog";
 import { Button } from "@/components/ui/button";

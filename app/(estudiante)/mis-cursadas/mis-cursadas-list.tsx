@@ -43,7 +43,7 @@ type Inscripcion = {
       building: string;
     };
     cursadaDocentes: {
-      docente: {
+      user: {
         name: string;
       };
     }[];
@@ -64,7 +64,7 @@ function InscripcionCard({
   const { cursada } = inscripcion;
   const endTime = addMinutesToTime(cursada.startTime, cursada.durationMinutes);
   const docenteNames = cursada.cursadaDocentes
-    .map((cd) => cd.docente.name)
+    .map((cd) => cd.user.name)
     .join(", ");
 
   const handleBaja = async () => {
