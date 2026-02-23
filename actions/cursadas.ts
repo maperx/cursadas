@@ -96,6 +96,28 @@ export async function hasExamenes(): Promise<boolean> {
   return !!result;
 }
 
+export async function hasExamenesForDay(dayOfWeek: number): Promise<boolean> {
+  const allExams = await db.query.cursadas.findMany({
+    where: eq(cursadas.examen, true),
+    with: { asignatura: true },
+  });
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  return allExams.some((exam) => {
+    if (exam.weeklyRepetition) {
+      if (!exam.daysOfWeek.includes(dayOfWeek)) return false;
+      if (exam.asignatura.startDate && today < exam.asignatura.startDate) return false;
+      if (exam.asignatura.endDate && today > exam.asignatura.endDate) return false;
+      return true;
+    } else {
+      if (!exam.eventDate) return false;
+      const [y, m, d] = exam.eventDate.split("-").map(Number);
+      return new Date(y, m - 1, d).getDay() === dayOfWeek;
+    }
+  });
+}
+
 export async function getCursadasByFilters(filters: {
   dayOfWeek?: number;
   carreraId?: string;
@@ -123,8 +145,9 @@ export async function getCursadasByFilters(filters: {
       if (cursada.weeklyRepetition) {
         if (!cursada.daysOfWeek.includes(filters.dayOfWeek)) return false;
       } else {
-        // Non-weekly: show only if eventDate matches today
-        if (cursada.eventDate !== today) return false;
+        if (!cursada.eventDate) return false;
+        const eventDayOfWeek = getDayOfWeekFromDate(cursada.eventDate);
+        if (eventDayOfWeek !== filters.dayOfWeek) return false;
       }
     }
     if (filters.carreraId && cursada.carreraId !== filters.carreraId) {
