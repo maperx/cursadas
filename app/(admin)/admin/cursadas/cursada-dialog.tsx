@@ -96,6 +96,8 @@ export function CursadaDialog({
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
+  const [warningMessages, setWarningMessages] = useState<string[] | null>(null);
+  const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
 
   const [selectedCarrera, setSelectedCarrera] = useState(cursada?.carreraId || "");
   const [selectedAsignatura, setSelectedAsignatura] = useState(cursada?.asignaturaId || "");
@@ -138,18 +140,8 @@ export function CursadaDialog({
     return asignaturas.filter((a) => a.carreraId === selectedCarrera);
   }, [selectedCarrera, asignaturas]);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setErrors({});
-
-    if (calculatedDuration <= 0) {
-      setErrors({ endTime: ["La hora de fin debe ser posterior a la hora de inicio"] });
-      setIsLoading(false);
-      return;
-    }
-
-    const formData = new FormData(e.currentTarget);
+  const buildFormData = (form: HTMLFormElement): FormData => {
+    const formData = new FormData(form);
     formData.set("carreraId", selectedCarrera);
     formData.set("asignaturaId", selectedAsignatura);
     formData.set("aulaId", selectedAula);
@@ -160,13 +152,23 @@ export function CursadaDialog({
     formData.set("examen", examen.toString());
     formData.set("startTime", startTime);
     formData.set("durationMinutes", calculatedDuration.toString());
+    return formData;
+  };
 
+  const submitFormData = async (formData: FormData) => {
     const result = isEditing
       ? await updateCursada(cursada.id, formData)
       : await createCursada(formData);
 
     if (result.error) {
-      setErrors(result.error);
+      // Check if this is a warning (exam conflict) rather than a blocking error
+      if ("_warning" in result.error) {
+        setWarningMessages(result.error._warning as string[]);
+        setPendingFormData(formData);
+        setIsLoading(false);
+        return;
+      }
+      setErrors(result.error as Record<string, string[]>);
       setIsLoading(false);
       return;
     }
@@ -180,8 +182,41 @@ export function CursadaDialog({
     });
 
     setIsLoading(false);
+    setWarningMessages(null);
+    setPendingFormData(null);
     setOpen(false);
     router.refresh();
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setErrors({});
+    setWarningMessages(null);
+    setPendingFormData(null);
+
+    if (calculatedDuration <= 0) {
+      setErrors({ endTime: ["La hora de fin debe ser posterior a la hora de inicio"] });
+      setIsLoading(false);
+      return;
+    }
+
+    const formData = buildFormData(e.currentTarget);
+    await submitFormData(formData);
+  };
+
+  const handleConfirmWarning = async () => {
+    if (!pendingFormData) return;
+    setIsLoading(true);
+    setWarningMessages(null);
+    pendingFormData.set("skipConflictCheck", "true");
+    await submitFormData(pendingFormData);
+    setPendingFormData(null);
+  };
+
+  const handleCancelWarning = () => {
+    setWarningMessages(null);
+    setPendingFormData(null);
   };
 
   const toggleDay = (day: number) => {
@@ -201,7 +236,11 @@ export function CursadaDialog({
   return (
     <Dialog open={open} onOpenChange={(value) => {
       setOpen(value);
-      if (!value) setDocenteFilter("");
+      if (!value) {
+        setDocenteFilter("");
+        setWarningMessages(null);
+        setPendingFormData(null);
+      }
     }}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -211,6 +250,34 @@ export function CursadaDialog({
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {warningMessages && (
+            <div className="rounded-md bg-amber-50 border border-amber-300 p-3 dark:bg-amber-950/50 dark:border-amber-700">
+              {warningMessages.map((msg, i) => (
+                <p key={i} className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                  {msg}
+                </p>
+              ))}
+              <div className="flex gap-2 mt-3">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleConfirmWarning}
+                  disabled={isLoading}
+                >
+                  {isLoading ? <Spinner size="sm" /> : "Guardar de todos modos"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCancelWarning}
+                  disabled={isLoading}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
           {errors._form && (
             <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3">
               <p className="text-sm text-destructive font-medium">{errors._form[0]}</p>

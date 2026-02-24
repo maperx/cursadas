@@ -220,7 +220,7 @@ async function checkAulaConflict(
   weeklyRepetition: boolean,
   eventDate: string | null | undefined,
   excludeCursadaId?: string
-) {
+): Promise<{ error: string | null; warnings: string[] }> {
   // Fetch the new cursada's asignatura to get date range
   const newAsignatura = await db.query.asignaturas.findFirst({
     where: eq(asignaturas.id, asignaturaId),
@@ -238,6 +238,7 @@ async function checkAulaConflict(
 
   const newStart = timeToMinutes(startTime);
   const newEnd = newStart + durationMinutes;
+  const warnings: string[] = [];
 
   for (const existing of existingCursadas) {
     // Determine if the two cursadas share any day
@@ -296,19 +297,25 @@ async function checkAulaConflict(
         if (!periodsOverlap) continue;
       }
 
-      // If this is an examen, allow it
-      if (isExamen) continue;
+      const message = `El aula "${existing.aula.name}" ya está ocupada por "${existing.asignatura.name}" el ${conflictLabel} en ese horario`;
 
-      return `El aula "${existing.aula.name}" ya está ocupada por "${existing.asignatura.name}" el ${conflictLabel} en ese horario`;
+      // If this is an examen, collect as warning instead of blocking
+      if (isExamen) {
+        warnings.push(message);
+        continue;
+      }
+
+      return { error: message, warnings: [] };
     }
   }
 
-  return null;
+  return { error: null, warnings };
 }
 
 export async function createCursada(formData: FormData) {
   const daysOfWeekRaw = formData.get("daysOfWeek") as string;
   const docenteIdsRaw = formData.get("docenteIds") as string;
+  const skipConflictCheck = formData.get("skipConflictCheck") === "true";
 
   const rawStartTime = formData.get("startTime") as string;
 
@@ -332,18 +339,23 @@ export async function createCursada(formData: FormData) {
     return { error: validated.error.flatten().fieldErrors };
   }
 
-  const conflict = await checkAulaConflict(
-    validated.data.aulaId,
-    validated.data.daysOfWeek,
-    validated.data.startTime,
-    validated.data.durationMinutes,
-    validated.data.asignaturaId,
-    validated.data.examen,
-    validated.data.weeklyRepetition,
-    validated.data.eventDate ?? null
-  );
-  if (conflict) {
-    return { error: { _form: [conflict] } };
+  if (!skipConflictCheck) {
+    const { error: conflict, warnings } = await checkAulaConflict(
+      validated.data.aulaId,
+      validated.data.daysOfWeek,
+      validated.data.startTime,
+      validated.data.durationMinutes,
+      validated.data.asignaturaId,
+      validated.data.examen,
+      validated.data.weeklyRepetition,
+      validated.data.eventDate ?? null
+    );
+    if (conflict) {
+      return { error: { _form: [conflict] } };
+    }
+    if (warnings.length > 0) {
+      return { error: { _warning: warnings } };
+    }
   }
 
   const [newCursada] = await db.insert(cursadas).values({
@@ -378,6 +390,7 @@ export async function createCursada(formData: FormData) {
 export async function updateCursada(id: string, formData: FormData) {
   const daysOfWeekRaw = formData.get("daysOfWeek") as string;
   const docenteIdsRaw = formData.get("docenteIds") as string;
+  const skipConflictCheck = formData.get("skipConflictCheck") === "true";
   const rawStartTime = formData.get("startTime") as string;
 
   const data = {
@@ -400,19 +413,24 @@ export async function updateCursada(id: string, formData: FormData) {
     return { error: validated.error.flatten().fieldErrors };
   }
 
-  const conflict = await checkAulaConflict(
-    validated.data.aulaId,
-    validated.data.daysOfWeek,
-    validated.data.startTime,
-    validated.data.durationMinutes,
-    validated.data.asignaturaId,
-    validated.data.examen,
-    validated.data.weeklyRepetition,
-    validated.data.eventDate ?? null,
-    id
-  );
-  if (conflict) {
-    return { error: { _form: [conflict] } };
+  if (!skipConflictCheck) {
+    const { error: conflict, warnings } = await checkAulaConflict(
+      validated.data.aulaId,
+      validated.data.daysOfWeek,
+      validated.data.startTime,
+      validated.data.durationMinutes,
+      validated.data.asignaturaId,
+      validated.data.examen,
+      validated.data.weeklyRepetition,
+      validated.data.eventDate ?? null,
+      id
+    );
+    if (conflict) {
+      return { error: { _form: [conflict] } };
+    }
+    if (warnings.length > 0) {
+      return { error: { _warning: warnings } };
+    }
   }
 
   await db
