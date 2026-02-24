@@ -10,6 +10,7 @@ import { signUp, signIn } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/use-toast";
+import { validateDocenteCode, setDocenteRole } from "@/actions/users";
 
 const registerSchema = z
   .object({
@@ -29,10 +31,16 @@ const registerSchema = z
       .string()
       .min(8, "La contraseña debe tener al menos 8 caracteres"),
     confirmPassword: z.string(),
+    isDocente: z.boolean(),
+    docenteCode: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Las contraseñas no coinciden",
     path: ["confirmPassword"],
+  })
+  .refine((data) => !data.isDocente || (data.docenteCode && data.docenteCode.length > 0), {
+    message: "El código de verificación es requerido",
+    path: ["docenteCode"],
   });
 
 type RegisterFormData = z.infer<typeof registerSchema>;
@@ -42,18 +50,37 @@ export function RegisterForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [isDocente, setIsDocente] = useState(false);
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      isDocente: false,
+      docenteCode: "",
+    },
   });
 
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
     try {
+      if (data.isDocente && data.docenteCode) {
+        const { valid } = await validateDocenteCode(data.docenteCode);
+        if (!valid) {
+          toast({
+            title: "Error",
+            description: "Código de docente inválido",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+      }
+
       const { error } = await signUp.email(
         {
           email: data.email,
@@ -61,7 +88,10 @@ export function RegisterForm() {
           name: data.name,
         },
         {
-          onSuccess: () => {
+          onSuccess: async () => {
+            if (data.isDocente && data.docenteCode) {
+              await setDocenteRole(data.email, data.docenteCode);
+            }
             setRegistrationSuccess(true);
           },
           onError: (ctx) => {
@@ -199,6 +229,41 @@ export function RegisterForm() {
               </p>
             )}
           </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="isDocente"
+              checked={isDocente}
+              onCheckedChange={(checked) => {
+                const value = checked === true;
+                setIsDocente(value);
+                setValue("isDocente", value);
+                if (!value) {
+                  setValue("docenteCode", "");
+                }
+              }}
+              disabled={isLoading}
+            />
+            <Label htmlFor="isDocente" className="cursor-pointer">
+              Soy docente
+            </Label>
+          </div>
+          {isDocente && (
+            <div className="space-y-2">
+              <Label htmlFor="docenteCode">Código de verificación</Label>
+              <Input
+                id="docenteCode"
+                type="text"
+                placeholder="Ingresá el código de docente"
+                {...register("docenteCode")}
+                disabled={isLoading}
+              />
+              {errors.docenteCode && (
+                <p className="text-sm text-destructive">
+                  {errors.docenteCode.message}
+                </p>
+              )}
+            </div>
+          )}
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? <Spinner size="sm" /> : "Registrarse"}
           </Button>

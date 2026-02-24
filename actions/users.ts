@@ -31,6 +31,21 @@ export async function getEstudiantes() {
   });
 }
 
+export async function validateDocenteCode(code: string) {
+  return { valid: code === process.env.DOCENTE_REGISTER_CODE };
+}
+
+export async function setDocenteRole(email: string, code: string) {
+  if (code !== process.env.DOCENTE_REGISTER_CODE) {
+    return { success: false, error: "Código de docente inválido" };
+  }
+  await db
+    .update(user)
+    .set({ role: "docente", updatedAt: new Date() })
+    .where(eq(user.email, email));
+  return { success: true };
+}
+
 export async function updateUserRole(userId: string, role: string) {
   await db
     .update(user)

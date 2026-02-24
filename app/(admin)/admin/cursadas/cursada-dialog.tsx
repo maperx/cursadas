@@ -104,6 +104,7 @@ export function CursadaDialog({
   const [selectedDocentes, setSelectedDocentes] = useState<string[]>(
     cursada?.docenteIds || []
   );
+  const [docenteFilter, setDocenteFilter] = useState("");
   const [weeklyRepetition, setWeeklyRepetition] = useState(
     cursada?.weeklyRepetition ?? true
   );
@@ -124,6 +125,12 @@ export function CursadaDialog({
   );
 
   const isEditing = !!cursada;
+
+  const filteredDocentes = useMemo(() => {
+    if (!docenteFilter) return docentes;
+    const lower = docenteFilter.toLowerCase();
+    return docentes.filter((d) => d.name.toLowerCase().includes(lower));
+  }, [docenteFilter, docentes]);
 
   // Filter asignaturas by selected carrera
   const filteredAsignaturas = useMemo(() => {
@@ -192,7 +199,10 @@ export function CursadaDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(value) => {
+      setOpen(value);
+      if (!value) setDocenteFilter("");
+    }}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -409,13 +419,23 @@ export function CursadaDialog({
 
           <div className="space-y-2">
             <Label>Docentes (opcional)</Label>
+            <Input
+              placeholder="Buscar docente..."
+              value={docenteFilter}
+              onChange={(e) => setDocenteFilter(e.target.value)}
+              disabled={isLoading}
+            />
             <div className="border rounded-md p-3 max-h-32 overflow-y-auto space-y-2">
               {docentes.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No hay docentes disponibles
                 </p>
+              ) : filteredDocentes.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No se encontraron docentes
+                </p>
               ) : (
-                docentes.map((docente) => (
+                filteredDocentes.map((docente) => (
                   <div key={docente.id} className="flex items-center gap-2">
                     <Checkbox
                       id={`docente-${docente.id}`}
