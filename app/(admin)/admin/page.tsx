@@ -3,8 +3,6 @@ import {
   BookOpen,
   Building2,
   GraduationCap,
-  School,
-  Users,
   DoorOpen,
   ClipboardList,
 } from "lucide-react";
@@ -23,19 +21,7 @@ const stats = [
     icon: BookOpen,
     color: "text-green-500",
   },
-  {
-    title: "Docentes",
-    href: "/admin/docentes",
-    icon: School,
-    color: "text-purple-500",
-  },
-  {
-    title: "Estudiantes",
-    href: "/admin/estudiantes",
-    icon: Users,
-    color: "text-orange-500",
-  },
-  {
+{
     title: "Aulas",
     href: "/admin/aulas",
     icon: DoorOpen,

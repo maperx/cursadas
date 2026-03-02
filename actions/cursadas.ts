@@ -185,6 +185,10 @@ export async function getCursadasByFilters(filters: {
       if (cursada.asignatura.startDate && today < cursada.asignatura.startDate) return false;
       if (cursada.asignatura.endDate && today > cursada.asignatura.endDate) return false;
     }
+    // Exclude non-weekly cursadas (single-event exams) with past eventDate
+    if (!cursada.weeklyRepetition && cursada.eventDate && cursada.eventDate < today) {
+      return false;
+    }
     return true;
   });
 }

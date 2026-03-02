@@ -92,7 +92,7 @@ const columns: ColumnDef<User>[] = [
     ),
   },
   {
-    id: "rol",
+    accessorKey: "role",
     header: "Rol",
     cell: ({ row }) => <RoleSelector user={row.original} />,
   },
@@ -115,6 +115,17 @@ export function UsuariosTable({ data }: UsuariosTableProps) {
       data={data}
       searchColumn="name"
       searchPlaceholder="Buscar usuario..."
+      filters={[
+        {
+          column: "role",
+          options: [
+            { label: "Admin", value: "admin" },
+            { label: "Docente", value: "docente" },
+            { label: "Estudiante", value: "estudiante" },
+          ],
+          placeholder: "Todos los roles",
+        },
+      ]}
     />
   );
 }
