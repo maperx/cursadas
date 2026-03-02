@@ -6,6 +6,7 @@ import { getAsignaturas } from "@/actions/asignaturas";
 import { ClassCard } from "@/components/public/class-card";
 import { ClassFilters } from "@/components/public/class-filters";
 import { PublicWeeklyView } from "@/components/public/public-weekly-view";
+import { AutoScrollGrid } from "@/components/public/auto-scroll-grid";
 import { Spinner } from "@/components/ui/spinner";
 
 interface HomePageProps {
@@ -16,6 +17,7 @@ interface HomePageProps {
     asignatura?: string;
     vista?: string;
     tipo?: string;
+    autoscroll?: string;
   }>;
 }
 
@@ -29,6 +31,7 @@ async function CursadasGrid({
     asignatura?: string;
     vista?: string;
     tipo?: string;
+    autoscroll?: string;
   };
 }) {
   const today = new Date().getDay();
@@ -64,13 +67,20 @@ async function CursadasGrid({
     );
   }
 
-  return (
+  const autoScroll = searchParams.autoscroll === "true";
+  const grid = (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {cursadas.map((cursada, index) => (
         <ClassCard key={cursada.id} cursada={cursada} index={index} />
       ))}
     </div>
   );
+
+  if (autoScroll) {
+    return <AutoScrollGrid enabled>{grid}</AutoScrollGrid>;
+  }
+
+  return grid;
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {

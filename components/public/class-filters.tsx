@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { X, LayoutGrid, CalendarDays, BookOpen, FileText } from "lucide-react";
+import { X, LayoutGrid, CalendarDays, BookOpen, FileText, Play, Pause } from "lucide-react";
 
 interface ClassFiltersProps {
   carreras: {
@@ -90,11 +90,24 @@ export function ClassFilters({
     router.push(`/?${params.toString()}`);
   };
 
+  const isAutoScroll = searchParams.get("autoscroll") === "true";
+
+  const toggleAutoScroll = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (isAutoScroll) {
+      params.delete("autoscroll");
+    } else {
+      params.set("autoscroll", "true");
+    }
+    router.push(`/?${params.toString()}`);
+  };
+
   const setVista = (vista: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (vista === "semanal") {
       params.set("vista", "semanal");
       params.delete("dia");
+      params.delete("autoscroll");
     } else {
       params.delete("vista");
       params.delete("dia");
@@ -123,7 +136,8 @@ export function ClassFilters({
     currentCarrera ||
     currentAula ||
     currentAsignatura ||
-    searchParams.get("tipo") !== null;
+    searchParams.get("tipo") !== null ||
+    isAutoScroll;
 
   return (
     <div className="flex flex-wrap gap-4 items-center">
@@ -149,27 +163,49 @@ export function ClassFilters({
         </Button>
       </div>
 
+      {/* Auto-scroll toggle */}
+      {!isSemanal && (
+        <Button
+          variant={isAutoScroll ? "default" : "ghost"}
+          size="sm"
+          className="gap-1.5"
+          onClick={toggleAutoScroll}
+          title={isAutoScroll ? "Pausar auto-scroll" : "Auto-scroll"}
+        >
+          {isAutoScroll ? (
+            <Pause className="h-4 w-4" />
+          ) : (
+            <Play className="h-4 w-4" />
+          )}
+          <span className="hidden sm:inline">
+            {isAutoScroll ? "Pausar" : "Auto-scroll"}
+          </span>
+        </Button>
+      )}
+
       {/* Tipo toggle */}
-      <div className="flex rounded-md border">
-        <Button
-          variant={currentTipo === "cursadas" ? "default" : "ghost"}
-          size="sm"
-          className="rounded-r-none gap-1.5"
-          onClick={() => setTipo("cursadas")}
-        >
-          <BookOpen className="h-4 w-4" />
-          <span className="hidden sm:inline">Cursadas</span>
-        </Button>
-        <Button
-          variant={currentTipo === "examenes" ? "default" : "ghost"}
-          size="sm"
-          className="rounded-l-none gap-1.5"
-          onClick={() => setTipo("examenes")}
-        >
-          <FileText className="h-4 w-4" />
-          <span className="hidden sm:inline">Examenes</span>
-        </Button>
-      </div>
+      {hasExamenes && (
+        <div className="flex rounded-md border">
+          <Button
+            variant={currentTipo === "cursadas" ? "default" : "ghost"}
+            size="sm"
+            className="rounded-r-none gap-1.5"
+            onClick={() => setTipo("cursadas")}
+          >
+            <BookOpen className="h-4 w-4" />
+            <span className="hidden sm:inline">Cursadas</span>
+          </Button>
+          <Button
+            variant={currentTipo === "examenes" ? "default" : "ghost"}
+            size="sm"
+            className="rounded-l-none gap-1.5"
+            onClick={() => setTipo("examenes")}
+          >
+            <FileText className="h-4 w-4" />
+            <span className="hidden sm:inline">Examenes</span>
+          </Button>
+        </div>
+      )}
 
       {!isSemanal && (
         <Select

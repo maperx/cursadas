@@ -198,3 +198,24 @@
     height: 0;
   }
 }
+
+@keyframes marquee-scroll {
+  from {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+.auto-scroll-track {
+  animation: marquee-scroll linear infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auto-scroll-track {
+    animation: none;
+  }
+}
