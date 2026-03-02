@@ -107,11 +107,20 @@ export async function getCursadasByDay(dayOfWeek: number) {
 }
 
 export async function hasExamenes(): Promise<boolean> {
-  const result = await db.query.cursadas.findFirst({
+  const today = new Date().toISOString().slice(0, 10);
+  const allExams = await db.query.cursadas.findMany({
     where: eq(cursadas.examen, true),
-    columns: { id: true },
+    with: { asignatura: true },
   });
-  return !!result;
+  return allExams.some((exam) => {
+    if (exam.weeklyRepetition) {
+      if (exam.asignatura.startDate && today < exam.asignatura.startDate) return false;
+      if (exam.asignatura.endDate && today > exam.asignatura.endDate) return false;
+      return true;
+    } else {
+      return !!exam.eventDate && exam.eventDate >= today;
+    }
+  });
 }
 
 export async function hasExamenesForDay(dayOfWeek: number): Promise<boolean> {
@@ -130,6 +139,8 @@ export async function hasExamenesForDay(dayOfWeek: number): Promise<boolean> {
       return true;
     } else {
       if (!exam.eventDate) return false;
+      // Exclude past single-event exams
+      if (exam.eventDate < today) return false;
       const [y, m, d] = exam.eventDate.split("-").map(Number);
       return new Date(y, m - 1, d).getDay() === dayOfWeek;
     }
