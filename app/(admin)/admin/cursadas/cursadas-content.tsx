@@ -5,6 +5,7 @@ import { CursadasHeader } from "./cursadas-header";
 import { CursadasTable } from "./cursadas-table";
 import { CursadasWeekly } from "./cursadas-weekly";
 import { CursadasDaily } from "./cursadas-daily";
+import { CursadasAulas } from "./cursadas-aulas";
 import {
   Select,
   SelectContent,
@@ -61,7 +62,7 @@ type Cursada = {
   }[];
 };
 
-export type ViewMode = "table" | "weekly" | "daily";
+export type ViewMode = "table" | "weekly" | "daily" | "aulas";
 
 interface CursadasContentProps {
   cursadas: Cursada[];
@@ -166,6 +167,17 @@ export function CursadasContent({
       )}
       {viewMode === "daily" && (
         <CursadasDaily
+          data={filteredCursadas}
+          selectedDate={selectedDate}
+          onDateChange={setSelectedDate}
+          carreras={carreras}
+          asignaturas={asignaturas}
+          docentes={docentes}
+          aulas={aulas}
+        />
+      )}
+      {viewMode === "aulas" && (
+        <CursadasAulas
           data={filteredCursadas}
           selectedDate={selectedDate}
           onDateChange={setSelectedDate}

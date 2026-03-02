@@ -2,7 +2,7 @@
 
 import { CursadaDialog } from "./cursada-dialog";
 import { Button } from "@/components/ui/button";
-import { Plus, TableProperties, CalendarDays, Calendar } from "lucide-react";
+import { Plus, TableProperties, CalendarDays, Calendar, Building } from "lucide-react";
 import type { ViewMode } from "./cursadas-content";
 
 type Carrera = {
@@ -80,10 +80,19 @@ export function CursadasHeader({
               variant={viewMode === "weekly" ? "default" : "ghost"}
               size="sm"
               onClick={() => onViewModeChange("weekly")}
-              className="rounded-l-none"
+              className="rounded-none"
             >
               <CalendarDays className="mr-1.5 h-4 w-4" />
               Semanal
+            </Button>
+            <Button
+              variant={viewMode === "aulas" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => onViewModeChange("aulas")}
+              className="rounded-l-none"
+            >
+              <Building className="mr-1.5 h-4 w-4" />
+              Aulas
             </Button>
           </div>
         )}
