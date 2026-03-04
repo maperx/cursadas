@@ -2,9 +2,7 @@ import { getAsignaturas } from "@/actions/asignaturas";
 import { getCarreras } from "@/actions/carreras";
 import { getDocentes } from "@/actions/users";
 import { AsignaturasTable } from "./asignaturas-table";
-import { AsignaturaDialog } from "./asignatura-dialog";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { CreateAsignaturaButton } from "./create-asignatura-button";
 
 export default async function AsignaturasPage() {
   const [asignaturas, carreras, docentes] = await Promise.all([
@@ -22,12 +20,7 @@ export default async function AsignaturasPage() {
             Gestiona las asignaturas de la facultad
           </p>
         </div>
-        <AsignaturaDialog carreras={carreras} docentes={docentes}>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva Asignatura
-          </Button>
-        </AsignaturaDialog>
+        <CreateAsignaturaButton carreras={carreras} docentes={docentes} />
       </div>
 
       <AsignaturasTable data={asignaturas} carreras={carreras} docentes={docentes} />
