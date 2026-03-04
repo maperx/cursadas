@@ -320,6 +320,11 @@ export function CursadasDaily({
                           </Badge>
                         )}
                       </div>
+                      {cursada.commissionNumber && (
+                        <div className="text-muted-foreground">
+                          Comisión {cursada.commissionNumber}
+                        </div>
+                      )}
                       <div className="text-muted-foreground">
                         {formatTime(cursada.startTime)} - {endTime}
                       </div>
