@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getDayFullName, formatTime, addMinutesToTime } from "@/lib/utils";
 import { CursadaDialog } from "./cursada-dialog";
-import { ChevronLeft, ChevronRight, Pencil } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { DeleteDialog } from "@/components/admin/delete-dialog";
+import { deleteCursada } from "@/actions/cursadas";
 
 type Carrera = {
   id: string;
@@ -401,7 +403,18 @@ export function CursadasWeekly({
                         >
                           {cursada.carrera.name}
                         </Badge>
-                        <Pencil className="absolute top-1.5 right-1.5 h-3 w-3 text-muted-foreground" />
+                        <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
+                          <Pencil className="h-3 w-3 text-muted-foreground" />
+                          <DeleteDialog
+                            title="Eliminar Cursada"
+                            description={`¿Estás seguro de que deseas eliminar esta cursada de "${cursada.asignatura.name}"? Esta acción no se puede deshacer.`}
+                            onConfirm={() => deleteCursada(cursada.id)}
+                          >
+                            <button onClick={(e) => e.stopPropagation()}>
+                              <Trash2 className="h-3 w-3 text-destructive" />
+                            </button>
+                          </DeleteDialog>
+                        </div>
                       </div>
                     </CursadaDialog>
                   );

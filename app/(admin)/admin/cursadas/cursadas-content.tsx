@@ -148,6 +148,8 @@ export function CursadasContent({
       {viewMode === "table" && (
         <CursadasTable
           data={filteredCursadas}
+          selectedDate={selectedDate}
+          onDateChange={setSelectedDate}
           carreras={carreras}
           asignaturas={asignaturas}
           docentes={docentes}

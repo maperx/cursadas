@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, Trash2 } from "lucide-react";
 import { deleteCursada } from "@/actions/cursadas";
-import { getDayName, formatTime, addMinutesToTime } from "@/lib/utils";
+import { getDayName, getDayFullName, formatTime, addMinutesToTime } from "@/lib/utils";
 import { useMemo } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type Carrera = {
   id: string;
@@ -61,27 +62,57 @@ type Cursada = {
 
 interface CursadasTableProps {
   data: Cursada[];
+  selectedDate: Date;
+  onDateChange: (date: Date) => void;
   carreras: Carrera[];
   asignaturas: Asignatura[];
   docentes: Docente[];
   aulas: Aula[];
 }
 
+function toInputValue(date: Date): string {
+  const y = date.getFullYear();
+  const m = (date.getMonth() + 1).toString().padStart(2, "0");
+  const d = date.getDate().toString().padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function addDays(date: Date, days: number): Date {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+function formatDateLabel(date: Date): string {
+  const day = date.getDate().toString().padStart(2, "0");
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
 export function CursadasTable({
   data,
+  selectedDate,
+  onDateChange,
   carreras,
   asignaturas,
   docentes,
   aulas,
 }: CursadasTableProps) {
+  const selectedDateStr = toInputValue(selectedDate);
   const activeCursadas = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
     return data.filter((c) => {
-      if (c.asignatura.startDate && today < c.asignatura.startDate) return false;
-      if (c.asignatura.endDate && today > c.asignatura.endDate) return false;
+      if (c.asignatura.startDate && selectedDateStr < c.asignatura.startDate) return false;
+      if (c.asignatura.endDate && selectedDateStr > c.asignatura.endDate) return false;
       return true;
     });
-  }, [data]);
+  }, [data, selectedDateStr]);
+
+  const dayOfWeek = selectedDate.getDay();
+  const isToday = selectedDateStr === toInputValue(new Date());
+  const goToPrev = () => onDateChange(addDays(selectedDate, -1));
+  const goToNext = () => onDateChange(addDays(selectedDate, 1));
+  const goToToday = () => onDateChange(new Date());
 
   const columns: ColumnDef<Cursada>[] = [
     {
@@ -232,11 +263,41 @@ export function CursadasTable({
   ];
 
   return (
-    <DataTable
-      columns={columns}
-      data={activeCursadas}
-      searchColumn="asignatura"
-      searchPlaceholder="Buscar cursada..."
-    />
+    <div>
+      <div className="mb-4 flex items-center gap-2">
+        <Button variant="outline" size="icon" onClick={goToPrev}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <Button variant="outline" size="icon" onClick={goToNext}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        {!isToday && (
+          <Button variant="outline" size="sm" onClick={goToToday}>
+            Hoy
+          </Button>
+        )}
+        <input
+          type="date"
+          value={toInputValue(selectedDate)}
+          onChange={(e) => {
+            if (e.target.value) {
+              const [y, m, d] = e.target.value.split("-").map(Number);
+              onDateChange(new Date(y, m - 1, d));
+            }
+          }}
+          className="rounded-md border bg-background px-3 py-1.5 text-sm"
+        />
+        <span className="text-sm text-muted-foreground">
+          {getDayFullName(dayOfWeek)} — {formatDateLabel(selectedDate)}
+          {isToday && " (hoy)"}
+        </span>
+      </div>
+      <DataTable
+        columns={columns}
+        data={activeCursadas}
+        searchColumn="asignatura"
+        searchPlaceholder="Buscar cursada..."
+      />
+    </div>
   );
 }
