@@ -100,15 +100,19 @@ export function CursadasTable({
   aulas,
 }: CursadasTableProps) {
   const selectedDateStr = toInputValue(selectedDate);
+  const dayOfWeek = selectedDate.getDay();
   const activeCursadas = useMemo(() => {
     return data.filter((c) => {
-      if (c.asignatura.startDate && selectedDateStr < c.asignatura.startDate) return false;
-      if (c.asignatura.endDate && selectedDateStr > c.asignatura.endDate) return false;
-      return true;
+      if (c.weeklyRepetition) {
+        if (!c.daysOfWeek.includes(dayOfWeek)) return false;
+        const { startDate, endDate } = c.asignatura;
+        if (startDate && selectedDateStr < startDate) return false;
+        if (endDate && selectedDateStr > endDate) return false;
+        return true;
+      }
+      return c.eventDate === selectedDateStr;
     });
-  }, [data, selectedDateStr]);
-
-  const dayOfWeek = selectedDate.getDay();
+  }, [data, selectedDateStr, dayOfWeek]);
   const isToday = selectedDateStr === toInputValue(new Date());
   const goToPrev = () => onDateChange(addDays(selectedDate, -1));
   const goToNext = () => onDateChange(addDays(selectedDate, 1));
