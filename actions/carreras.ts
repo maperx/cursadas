@@ -9,6 +9,7 @@ import { z } from "zod";
 const carreraSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Color inválido"),
+  visible: z.boolean().default(true),
 });
 
 export async function getCarreras() {
@@ -27,6 +28,7 @@ export async function createCarrera(formData: FormData) {
   const data = {
     name: formData.get("name") as string,
     color: formData.get("color") as string,
+    visible: formData.get("visible") === "true",
   };
 
   const validated = carreraSchema.safeParse(data);
@@ -37,11 +39,13 @@ export async function createCarrera(formData: FormData) {
   await db.insert(carreras).values({
     name: validated.data.name,
     color: validated.data.color,
+    visible: validated.data.visible,
   });
 
   revalidatePath("/admin/carreras");
   revalidatePath("/admin/asignaturas");
   revalidatePath("/admin/cursadas");
+  revalidatePath("/");
   return { success: true };
 }
 
@@ -49,6 +53,7 @@ export async function updateCarrera(id: string, formData: FormData) {
   const data = {
     name: formData.get("name") as string,
     color: formData.get("color") as string,
+    visible: formData.get("visible") === "true",
   };
 
   const validated = carreraSchema.safeParse(data);
@@ -61,6 +66,7 @@ export async function updateCarrera(id: string, formData: FormData) {
     .set({
       name: validated.data.name,
       color: validated.data.color,
+      visible: validated.data.visible,
       updatedAt: new Date(),
     })
     .where(eq(carreras.id, id));
@@ -68,6 +74,7 @@ export async function updateCarrera(id: string, formData: FormData) {
   revalidatePath("/admin/carreras");
   revalidatePath("/admin/asignaturas");
   revalidatePath("/admin/cursadas");
+  revalidatePath("/");
   return { success: true };
 }
 

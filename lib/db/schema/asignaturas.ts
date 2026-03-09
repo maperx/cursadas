@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, date } from "drizzle-orm/pg-core";
+import { boolean, pgTable, text, timestamp, uuid, date } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { carreras } from "./carreras";
 import { cursadas } from "./cursadas";
@@ -12,6 +12,7 @@ export const asignaturas = pgTable("asignaturas", {
     .references(() => carreras.id, { onDelete: "cascade" }),
   startDate: date("start_date"),
   endDate: date("end_date"),
+  visible: boolean("visible").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

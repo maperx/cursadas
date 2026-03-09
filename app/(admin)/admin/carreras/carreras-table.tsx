@@ -5,13 +5,14 @@ import { DataTable } from "@/components/admin/data-table";
 import { CarreraDialog } from "./carrera-dialog";
 import { DeleteDialog } from "@/components/admin/delete-dialog";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
 import { deleteCarrera } from "@/actions/carreras";
 
 type Carrera = {
   id: string;
   name: string;
   color: string;
+  visible: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -34,6 +35,15 @@ const columns: ColumnDef<Carrera>[] = [
           {row.original.color}
         </span>
       </div>
+    ),
+  },
+  {
+    accessorKey: "visible",
+    header: "Visible",
+    cell: ({ row }) => (
+      row.original.visible
+        ? <Eye className="h-4 w-4 text-muted-foreground" />
+        : <EyeOff className="h-4 w-4 text-muted-foreground" />
     ),
   },
   {

@@ -6,7 +6,7 @@ import { AsignaturaDialog } from "./asignatura-dialog";
 import { DeleteDialog } from "@/components/admin/delete-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
 import { deleteAsignatura } from "@/actions/asignaturas";
 
 type Carrera = {
@@ -27,6 +27,7 @@ type Asignatura = {
   carreraId: string;
   startDate: string | null;
   endDate: string | null;
+  visible: boolean;
   createdAt: Date;
   updatedAt: Date;
   carrera: Carrera;
@@ -83,6 +84,15 @@ export function AsignaturasTable({ data, carreras, docentes }: AsignaturasTableP
           : "";
         return `${start} - ${end}`;
       },
+    },
+    {
+      accessorKey: "visible",
+      header: "Visible",
+      cell: ({ row }) => (
+        row.original.visible
+          ? <Eye className="h-4 w-4 text-muted-foreground" />
+          : <EyeOff className="h-4 w-4 text-muted-foreground" />
+      ),
     },
     {
       id: "actions",

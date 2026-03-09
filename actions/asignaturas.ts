@@ -11,6 +11,7 @@ const asignaturaSchema = z.object({
   carreraId: z.string().uuid("Carrera inválida"),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
+  visible: z.boolean().default(true),
   docenteIds: z.array(z.string()).optional(),
 });
 
@@ -56,6 +57,7 @@ export async function createAsignatura(formData: FormData) {
     carreraId: formData.get("carreraId") as string,
     startDate: formData.get("startDate") as string || null,
     endDate: formData.get("endDate") as string || null,
+    visible: formData.get("visible") === "true",
     docenteIds: docenteIdsRaw ? JSON.parse(docenteIdsRaw) : [],
   };
 
@@ -69,6 +71,7 @@ export async function createAsignatura(formData: FormData) {
     carreraId: validated.data.carreraId,
     startDate: validated.data.startDate,
     endDate: validated.data.endDate,
+    visible: validated.data.visible,
   }).returning();
 
   // Add docentes if any
@@ -83,6 +86,7 @@ export async function createAsignatura(formData: FormData) {
 
   revalidatePath("/admin/asignaturas");
   revalidatePath("/admin/cursadas");
+  revalidatePath("/");
   return { success: true };
 }
 
@@ -93,6 +97,7 @@ export async function updateAsignatura(id: string, formData: FormData) {
     carreraId: formData.get("carreraId") as string,
     startDate: formData.get("startDate") as string || null,
     endDate: formData.get("endDate") as string || null,
+    visible: formData.get("visible") === "true",
     docenteIds: docenteIdsRaw ? JSON.parse(docenteIdsRaw) : [],
   };
 
@@ -108,6 +113,7 @@ export async function updateAsignatura(id: string, formData: FormData) {
       carreraId: validated.data.carreraId,
       startDate: validated.data.startDate,
       endDate: validated.data.endDate,
+      visible: validated.data.visible,
       updatedAt: new Date(),
     })
     .where(eq(asignaturas.id, id));
@@ -126,6 +132,7 @@ export async function updateAsignatura(id: string, formData: FormData) {
 
   revalidatePath("/admin/asignaturas");
   revalidatePath("/admin/cursadas");
+  revalidatePath("/");
   return { success: true };
 }
 

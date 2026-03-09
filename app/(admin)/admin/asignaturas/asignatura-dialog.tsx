@@ -46,6 +46,7 @@ interface AsignaturaDialogProps {
     carreraId: string;
     startDate: string | null;
     endDate: string | null;
+    visible: boolean;
     docenteIds: string[];
   };
 }
@@ -61,6 +62,7 @@ export function AsignaturaDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [selectedCarrera, setSelectedCarrera] = useState(asignatura?.carreraId || "");
+  const [visible, setVisible] = useState(asignatura?.visible ?? true);
   const [selectedDocentes, setSelectedDocentes] = useState<string[]>(
     asignatura?.docenteIds || []
   );
@@ -74,6 +76,7 @@ export function AsignaturaDialog({
 
     const formData = new FormData(e.currentTarget);
     formData.set("carreraId", selectedCarrera);
+    formData.set("visible", visible ? "true" : "false");
     formData.set("docenteIds", JSON.stringify(selectedDocentes));
 
     const result = isEditing
@@ -209,6 +212,18 @@ export function AsignaturaDialog({
                 ))
               )}
             </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="visible"
+              checked={visible}
+              onCheckedChange={(checked) => setVisible(checked === true)}
+              disabled={isLoading}
+            />
+            <Label htmlFor="visible" className="cursor-pointer">
+              Visible en página pública
+            </Label>
           </div>
 
           <div className="flex justify-end gap-2">

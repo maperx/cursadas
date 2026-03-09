@@ -110,9 +110,10 @@ export async function hasExamenes(): Promise<boolean> {
   const today = new Date().toISOString().slice(0, 10);
   const allExams = await db.query.cursadas.findMany({
     where: eq(cursadas.examen, true),
-    with: { asignatura: true },
+    with: { asignatura: true, carrera: true },
   });
   return allExams.some((exam) => {
+    if (!exam.carrera.visible || !exam.asignatura.visible) return false;
     if (exam.weeklyRepetition) {
       if (exam.asignatura.startDate && today < exam.asignatura.startDate) return false;
       if (exam.asignatura.endDate && today > exam.asignatura.endDate) return false;
@@ -126,12 +127,13 @@ export async function hasExamenes(): Promise<boolean> {
 export async function hasExamenesForDay(dayOfWeek: number): Promise<boolean> {
   const allExams = await db.query.cursadas.findMany({
     where: eq(cursadas.examen, true),
-    with: { asignatura: true },
+    with: { asignatura: true, carrera: true },
   });
 
   const today = new Date().toISOString().slice(0, 10);
 
   return allExams.some((exam) => {
+    if (!exam.carrera.visible || !exam.asignatura.visible) return false;
     if (exam.weeklyRepetition) {
       if (!exam.daysOfWeek.includes(dayOfWeek)) return false;
       if (exam.asignatura.startDate && today < exam.asignatura.startDate) return false;
@@ -170,6 +172,8 @@ export async function getCursadasByFilters(filters: {
   const today = new Date().toISOString().slice(0, 10);
 
   return allCursadas.filter((cursada) => {
+    // Hide cursadas from non-visible carreras/asignaturas on public page
+    if (!cursada.carrera.visible || !cursada.asignatura.visible) return false;
     if (filters.dayOfWeek !== undefined) {
       if (cursada.weeklyRepetition) {
         if (!cursada.daysOfWeek.includes(filters.dayOfWeek)) return false;

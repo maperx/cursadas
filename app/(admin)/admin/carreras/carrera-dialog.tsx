@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/use-toast";
 import { createCarrera, updateCarrera } from "@/actions/carreras";
@@ -22,6 +23,7 @@ interface CarreraDialogProps {
     id: string;
     name: string;
     color: string;
+    visible: boolean;
   };
 }
 
@@ -31,6 +33,7 @@ export function CarreraDialog({ children, carrera }: CarreraDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [color, setColor] = useState(carrera?.color || "#3B82F6");
+  const [visible, setVisible] = useState(carrera?.visible ?? true);
 
   const isEditing = !!carrera;
 
@@ -108,6 +111,18 @@ export function CarreraDialog({ children, carrera }: CarreraDialogProps) {
             {errors.color && (
               <p className="text-sm text-destructive">{errors.color[0]}</p>
             )}
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="hidden" name="visible" value={visible ? "true" : "false"} />
+            <Checkbox
+              id="visible"
+              checked={visible}
+              onCheckedChange={(checked) => setVisible(checked === true)}
+              disabled={isLoading}
+            />
+            <Label htmlFor="visible" className="cursor-pointer">
+              Visible en página pública
+            </Label>
           </div>
           <div className="flex justify-end gap-2">
             <Button
