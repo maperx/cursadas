@@ -407,7 +407,7 @@ export function CursadaDialog({
                 disabled={isLoading}
               />
               <label htmlFor="examen" className="text-sm cursor-pointer">
-                Es examen
+                Es evento
               </label>
             </div>
           </div>

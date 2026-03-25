@@ -135,12 +135,12 @@ export function CursadasContent({
         </Select>
         <Select value={filterExamen} onValueChange={setFilterExamen}>
           <SelectTrigger className="w-full sm:w-[200px]">
-            <SelectValue placeholder="Cursadas y exámenes" />
+            <SelectValue placeholder="Cursadas y eventos" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Cursadas y exámenes</SelectItem>
+            <SelectItem value="all">Cursadas y eventos</SelectItem>
             <SelectItem value="cursada">Solo cursadas</SelectItem>
-            <SelectItem value="examen">Solo exámenes</SelectItem>
+            <SelectItem value="examen">Solo eventos</SelectItem>
           </SelectContent>
         </Select>
       </div>

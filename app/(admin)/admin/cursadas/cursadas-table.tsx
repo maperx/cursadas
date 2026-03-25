@@ -129,7 +129,7 @@ export function CursadasTable({
             <span className="font-medium">{row.original.asignatura.name}</span>
             {row.original.examen && (
               <Badge variant="destructive" className="text-[10px] px-1 py-0">
-                Examen
+                Evento
               </Badge>
             )}
           </div>
