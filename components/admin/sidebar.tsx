@@ -3,57 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import {
-  BookOpen,
-  Building2,
-  GraduationCap,
-  Home,
-  LayoutDashboard,
-  UserCog,
-  ClipboardList,
-  DoorOpen,
-} from "lucide-react";
-
-const navItems = [
-  {
-    title: "Dashboard",
-    href: "/admin",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Carreras",
-    href: "/admin/carreras",
-    icon: GraduationCap,
-  },
-  {
-    title: "Asignaturas",
-    href: "/admin/asignaturas",
-    icon: BookOpen,
-  },
-  {
-    title: "Aulas",
-    href: "/admin/aulas",
-    icon: DoorOpen,
-  },
-  {
-    title: "Cursadas",
-    href: "/admin/cursadas",
-    icon: Building2,
-  },
-  {
-    title: "Inscripciones",
-    href: "/admin/inscripciones",
-    icon: ClipboardList,
-  },
-  {
-    title: "Usuarios",
-    href: "/admin/usuarios",
-    icon: UserCog,
-  },
-];
+import { Home } from "lucide-react";
+import { useSession } from "@/lib/auth-client";
+import { getNavItemsForRole } from "./nav-items";
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const items = getNavItemsForRole(session?.user?.role);
 
   return (
     <aside className="hidden md:flex w-64 flex-col border-r bg-card">
@@ -65,7 +22,7 @@ export function AdminSidebar() {
       </div>
       <nav className="flex-1 overflow-y-auto p-4">
         <ul className="space-y-1">
-          {navItems.map((item) => {
+          {items.map((item) => {
             const isActive =
               pathname === item.href ||
               (item.href !== "/admin" && pathname.startsWith(item.href));

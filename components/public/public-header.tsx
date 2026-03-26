@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogIn, LogOut, Settings, User, BookOpen, ExternalLink } from "lucide-react";
+import { LogIn, LogOut, Newspaper, Settings, User, BookOpen, ExternalLink } from "lucide-react";
 import Image from "next/image";
 
 export function PublicHeader() {
@@ -39,6 +39,12 @@ export function PublicHeader() {
         </Link>
 
         <nav className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/noticias">
+              <Newspaper className="h-4 w-4 mr-2" />
+              Noticias
+            </Link>
+          </Button>
           {session ? (
             <>
               {session.user.role === "estudiante" && (

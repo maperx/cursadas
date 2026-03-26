@@ -5,10 +5,13 @@ import {
   GraduationCap,
   DoorOpen,
   ClipboardList,
+  Newspaper,
 } from "lucide-react";
 import Link from "next/link";
+import { getSession } from "@/lib/auth-server";
+import { redirect } from "next/navigation";
 
-const stats = [
+const adminStats = [
   {
     title: "Carreras",
     href: "/admin/carreras",
@@ -21,7 +24,7 @@ const stats = [
     icon: BookOpen,
     color: "text-green-500",
   },
-{
+  {
     title: "Aulas",
     href: "/admin/aulas",
     icon: DoorOpen,
@@ -39,15 +42,40 @@ const stats = [
     icon: ClipboardList,
     color: "text-yellow-500",
   },
+  {
+    title: "Noticias",
+    href: "/admin/noticias",
+    icon: Newspaper,
+    color: "text-purple-500",
+  },
 ];
 
-export default function AdminDashboardPage() {
+const noticiasStats = [
+  {
+    title: "Noticias",
+    href: "/admin/noticias",
+    icon: Newspaper,
+    color: "text-purple-500",
+  },
+];
+
+export default async function AdminDashboardPage() {
+  const session = await getSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  const stats = session.user.role === "noticias" ? noticiasStats : adminStats;
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Panel principal</h1>
         <p className="text-muted-foreground">
-          Bienvenido al panel de administración
+          {session.user.role === "noticias"
+            ? "Gestión de noticias"
+            : "Bienvenido al panel de administración"}
         </p>
       </div>
 

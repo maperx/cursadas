@@ -23,3 +23,11 @@ export async function requireAdmin() {
   }
   return session;
 }
+
+export async function requireNoticiasOrAdmin() {
+  const session = await requireAuth();
+  if (session.user.role !== "admin" && session.user.role !== "noticias") {
+    throw new Error("Forbidden");
+  }
+  return session;
+}

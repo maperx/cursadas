@@ -64,6 +64,7 @@ function RoleSelector({ user }: { user: User }) {
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="admin">Admin</SelectItem>
+        <SelectItem value="noticias">Noticias</SelectItem>
         <SelectItem value="docente">Docente</SelectItem>
         <SelectItem value="estudiante">Estudiante</SelectItem>
       </SelectContent>
@@ -120,6 +121,7 @@ export function UsuariosTable({ data }: UsuariosTableProps) {
           column: "role",
           options: [
             { label: "Admin", value: "admin" },
+            { label: "Noticias", value: "noticias" },
             { label: "Docente", value: "docente" },
             { label: "Estudiante", value: "estudiante" },
           ],

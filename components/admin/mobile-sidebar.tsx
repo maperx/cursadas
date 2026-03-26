@@ -9,54 +9,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  BookOpen,
-  Building2,
-  GraduationCap,
-  Home,
-  LayoutDashboard,
-  UserCog,
-  ClipboardList,
-  DoorOpen,
-} from "lucide-react";
-
-const navItems = [
-  {
-    title: "Dashboard",
-    href: "/admin",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Carreras",
-    href: "/admin/carreras",
-    icon: GraduationCap,
-  },
-  {
-    title: "Asignaturas",
-    href: "/admin/asignaturas",
-    icon: BookOpen,
-  },
-  {
-    title: "Aulas",
-    href: "/admin/aulas",
-    icon: DoorOpen,
-  },
-  {
-    title: "Cursadas",
-    href: "/admin/cursadas",
-    icon: Building2,
-  },
-  {
-    title: "Inscripciones",
-    href: "/admin/inscripciones",
-    icon: ClipboardList,
-  },
-  {
-    title: "Usuarios",
-    href: "/admin/usuarios",
-    icon: UserCog,
-  },
-];
+import { Home } from "lucide-react";
+import { useSession } from "@/lib/auth-client";
+import { getNavItemsForRole } from "./nav-items";
 
 interface MobileSidebarProps {
   open: boolean;
@@ -65,6 +20,8 @@ interface MobileSidebarProps {
 
 export function MobileSidebar({ open, onOpenChange }: MobileSidebarProps) {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const items = getNavItemsForRole(session?.user?.role);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -83,7 +40,7 @@ export function MobileSidebar({ open, onOpenChange }: MobileSidebarProps) {
         </DialogHeader>
         <nav className="p-4">
           <ul className="space-y-1">
-            {navItems.map((item) => {
+            {items.map((item) => {
               const isActive =
                 pathname === item.href ||
                 (item.href !== "/admin" && pathname.startsWith(item.href));

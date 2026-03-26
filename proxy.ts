@@ -14,7 +14,18 @@ export async function proxy(request: NextRequest) {
     if (!session) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
-    if (session.user.role !== "admin") {
+
+    const role = session.user.role;
+
+    // Rol "noticias" solo puede acceder a /admin y /admin/noticias
+    if (role === "noticias") {
+      const allowed =
+        pathname === "/admin" ||
+        pathname.startsWith("/admin/noticias");
+      if (!allowed) {
+        return NextResponse.redirect(new URL("/admin/noticias", request.url));
+      }
+    } else if (role !== "admin") {
       return NextResponse.redirect(new URL("/", request.url));
     }
   }
