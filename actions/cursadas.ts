@@ -154,7 +154,6 @@ export async function getCursadasByFilters(filters: {
   carreraId?: string;
   asignaturaId?: string;
   aulaId?: string;
-  examen?: boolean;
 }) {
   const allCursadas = await db.query.cursadas.findMany({
     with: {
@@ -171,7 +170,18 @@ export async function getCursadasByFilters(filters: {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  return allCursadas.filter((cursada) => {
+  // Calculate current week range (Monday to Sunday)
+  const now = new Date();
+  const dow = now.getDay(); // 0=Sunday
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + mondayOffset);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const weekStart = monday.toISOString().slice(0, 10);
+  const weekEnd = sunday.toISOString().slice(0, 10);
+
+  const filtered = allCursadas.filter((cursada) => {
     // Hide cursadas from non-visible carreras/asignaturas on public page
     if (!cursada.carrera.visible || !cursada.asignatura.visible) return false;
     if (filters.dayOfWeek !== undefined) {
@@ -183,29 +193,53 @@ export async function getCursadasByFilters(filters: {
         if (eventDayOfWeek !== filters.dayOfWeek) return false;
       }
     }
-    if (filters.carreraId && cursada.carreraId !== filters.carreraId) {
-      return false;
-    }
-    if (filters.asignaturaId && cursada.asignaturaId !== filters.asignaturaId) {
-      return false;
-    }
-    if (filters.aulaId && cursada.aulaId !== filters.aulaId) {
-      return false;
-    }
-    if (filters.examen !== undefined && cursada.examen !== filters.examen) {
-      return false;
-    }
+    if (filters.carreraId && cursada.carreraId !== filters.carreraId) return false;
+    if (filters.asignaturaId && cursada.asignaturaId !== filters.asignaturaId) return false;
+    if (filters.aulaId && cursada.aulaId !== filters.aulaId) return false;
     // Exclude weekly cursadas outside their asignatura's date range
     if (cursada.weeklyRepetition) {
       if (cursada.asignatura.startDate && today < cursada.asignatura.startDate) return false;
       if (cursada.asignatura.endDate && today > cursada.asignatura.endDate) return false;
     }
-    // Exclude non-weekly cursadas (single-event exams) with past eventDate
-    if (!cursada.weeklyRepetition && cursada.eventDate && cursada.eventDate < today) {
-      return false;
+    // Single-date events: only show if within current week
+    if (!cursada.weeklyRepetition) {
+      if (!cursada.eventDate) return false;
+      if (cursada.eventDate < weekStart || cursada.eventDate > weekEnd) return false;
     }
     return true;
   });
+
+  // Event priority: eventos (examen=true) displace cursadas in same aula + overlapping time
+  const eventos = filtered.filter(c => c.examen);
+  const cursadasRegulares = filtered.filter(c => !c.examen);
+
+  const remainingCursadas = cursadasRegulares.filter(cursada => {
+    return !eventos.some(evento => {
+      if (evento.aulaId !== cursada.aulaId) return false;
+      // When no dayOfWeek filter, check that they share a day
+      if (filters.dayOfWeek === undefined) {
+        let shareDay = false;
+        if (evento.weeklyRepetition && cursada.weeklyRepetition) {
+          shareDay = cursada.daysOfWeek.some(d => evento.daysOfWeek.includes(d));
+        } else if (!evento.weeklyRepetition && cursada.weeklyRepetition && evento.eventDate) {
+          shareDay = cursada.daysOfWeek.includes(getDayOfWeekFromDate(evento.eventDate));
+        } else if (evento.weeklyRepetition && !cursada.weeklyRepetition && cursada.eventDate) {
+          shareDay = evento.daysOfWeek.includes(getDayOfWeekFromDate(cursada.eventDate));
+        } else if (!evento.weeklyRepetition && !cursada.weeklyRepetition) {
+          shareDay = cursada.eventDate === evento.eventDate;
+        }
+        if (!shareDay) return false;
+      }
+      // Check time overlap
+      const cStart = timeToMinutes(cursada.startTime);
+      const cEnd = cStart + cursada.durationMinutes;
+      const eStart = timeToMinutes(evento.startTime);
+      const eEnd = eStart + evento.durationMinutes;
+      return cStart < eEnd && eStart < cEnd;
+    });
+  });
+
+  return [...eventos, ...remainingCursadas];
 }
 
 function timeToMinutes(time: string): number {

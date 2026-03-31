@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { X, LayoutGrid, CalendarDays, BookOpen, FileText, Play, Pause } from "lucide-react";
+import { X, LayoutGrid, CalendarDays, Play, Pause } from "lucide-react";
 
 interface ClassFiltersProps {
   carreras: {
@@ -29,8 +29,6 @@ interface ClassFiltersProps {
     carreraId: string;
   }[];
   todayDayOfWeek: number;
-  hasExamenes: boolean;
-  defaultTipo: string;
 }
 
 const DAYS = [
@@ -48,8 +46,6 @@ export function ClassFilters({
   aulas,
   asignaturas,
   todayDayOfWeek,
-  hasExamenes,
-  defaultTipo,
 }: ClassFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,7 +56,6 @@ export function ClassFilters({
   const currentAsignatura = searchParams.get("asignatura") || "";
   const currentVista = searchParams.get("vista") || "grilla";
   const isSemanal = currentVista === "semanal";
-  const currentTipo = searchParams.get("tipo") ?? defaultTipo;
 
   const filteredAsignaturas = useMemo(() => {
     if (!currentCarrera) return asignaturas;
@@ -82,10 +77,6 @@ export function ClassFilters({
       if (!stillValid) {
         params.delete("asignatura");
       }
-    }
-    // If changing day, clear tipo so auto-detection kicks in
-    if (key === "dia") {
-      params.delete("tipo");
     }
     router.push(`/?${params.toString()}`);
   };
@@ -112,13 +103,6 @@ export function ClassFilters({
       params.delete("vista");
       params.delete("dia");
     }
-    params.delete("tipo");
-    router.push(`/?${params.toString()}`);
-  };
-
-  const setTipo = (tipo: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tipo", tipo);
     router.push(`/?${params.toString()}`);
   };
 
@@ -136,7 +120,6 @@ export function ClassFilters({
     currentCarrera ||
     currentAula ||
     currentAsignatura ||
-    searchParams.get("tipo") !== null ||
     isAutoScroll;
 
   return (
@@ -181,30 +164,6 @@ export function ClassFilters({
             {isAutoScroll ? "Pausar" : "Auto-scroll"}
           </span>
         </Button>
-      )}
-
-      {/* Tipo toggle */}
-      {hasExamenes && (
-        <div className="flex rounded-md border">
-          <Button
-            variant={currentTipo === "cursadas" ? "default" : "ghost"}
-            size="sm"
-            className="rounded-r-none gap-1.5"
-            onClick={() => setTipo("cursadas")}
-          >
-            <BookOpen className="h-4 w-4" />
-            <span className="hidden sm:inline">Cursadas</span>
-          </Button>
-          <Button
-            variant={currentTipo === "examenes" ? "default" : "ghost"}
-            size="sm"
-            className="rounded-l-none gap-1.5"
-            onClick={() => setTipo("examenes")}
-          >
-            <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">Eventos</span>
-          </Button>
-        </div>
       )}
 
       {!isSemanal && (

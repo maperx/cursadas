@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getCursadasByFilters, hasExamenes, hasExamenesForDay } from "@/actions/cursadas";
+import { getCursadasByFilters } from "@/actions/cursadas";
 import { getCarreras } from "@/actions/carreras";
 import { getAulas } from "@/actions/aulas";
 import { getAsignaturas } from "@/actions/asignaturas";
@@ -16,7 +16,6 @@ interface HomePageProps {
     aula?: string;
     asignatura?: string;
     vista?: string;
-    tipo?: string;
     autoscroll?: string;
   }>;
 }
@@ -30,7 +29,6 @@ async function CursadasGrid({
     aula?: string;
     asignatura?: string;
     vista?: string;
-    tipo?: string;
     autoscroll?: string;
   };
 }) {
@@ -46,7 +44,6 @@ async function CursadasGrid({
     carreraId: searchParams.carrera,
     asignaturaId: searchParams.asignatura,
     aulaId: searchParams.aula,
-    examen: searchParams.tipo === "examenes" ? true : searchParams.tipo === "cursadas" ? false : undefined,
   };
 
   const cursadas = (await getCursadasByFilters(filters)).sort((a, b) =>
@@ -84,17 +81,11 @@ async function CursadasGrid({
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
-  const [carreras, aulas, asignaturas, resolvedSearchParams, hasExams] =
-    await Promise.all([getCarreras(), getAulas(), getAsignaturas(), searchParams, hasExamenes()]);
+  const [carreras, aulas, asignaturas, resolvedSearchParams] =
+    await Promise.all([getCarreras(), getAulas(), getAsignaturas(), searchParams]);
 
   // Get current day of week (0 = Sunday, 1 = Monday, etc.)
   const today = new Date().getDay();
-  const selectedDay = resolvedSearchParams.dia ? parseInt(resolvedSearchParams.dia) : today;
-  const isSemanal = resolvedSearchParams.vista === "semanal";
-
-  // Auto-detect default tipo: if selected day has exams, default to "examenes"
-  const dayHasExams = !isSemanal && hasExams ? await hasExamenesForDay(selectedDay) : false;
-  const defaultTipo = dayHasExams ? "examenes" : "cursadas";
   const todayName = [
     "Domingo",
     "Lunes",
@@ -131,8 +122,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         aulas={aulas}
         asignaturas={asignaturasForFilters}
         todayDayOfWeek={today}
-        hasExamenes={hasExams}
-        defaultTipo={defaultTipo}
       />
 
       <Suspense
@@ -142,10 +131,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           </div>
         }
       >
-        <CursadasGrid searchParams={{
-          ...resolvedSearchParams,
-          tipo: resolvedSearchParams.tipo ?? defaultTipo,
-        }} />
+        <CursadasGrid searchParams={resolvedSearchParams} />
       </Suspense>
     </div>
   );
