@@ -154,6 +154,7 @@ export async function getCursadasByFilters(filters: {
   carreraId?: string;
   asignaturaId?: string;
   aulaId?: string;
+  vista?: string;
 }) {
   const allCursadas = await db.query.cursadas.findMany({
     with: {
@@ -196,15 +197,18 @@ export async function getCursadasByFilters(filters: {
     if (filters.carreraId && cursada.carreraId !== filters.carreraId) return false;
     if (filters.asignaturaId && cursada.asignaturaId !== filters.asignaturaId) return false;
     if (filters.aulaId && cursada.aulaId !== filters.aulaId) return false;
-    // Exclude weekly cursadas outside their asignatura's date range
-    if (cursada.weeklyRepetition) {
-      if (cursada.asignatura.startDate && today < cursada.asignatura.startDate) return false;
-      if (cursada.asignatura.endDate && today > cursada.asignatura.endDate) return false;
-    }
-    // Single-date events: only show if within current week
-    if (!cursada.weeklyRepetition) {
-      if (!cursada.eventDate) return false;
-      if (cursada.eventDate < weekStart || cursada.eventDate > weekEnd) return false;
+    // In weekly view, let the client component filter by the selected week
+    if (filters.vista !== "semanal") {
+      // Exclude weekly cursadas outside their asignatura's date range
+      if (cursada.weeklyRepetition) {
+        if (cursada.asignatura.startDate && today < cursada.asignatura.startDate) return false;
+        if (cursada.asignatura.endDate && today > cursada.asignatura.endDate) return false;
+      }
+      // Single-date events: only show if within current week
+      if (!cursada.weeklyRepetition) {
+        if (!cursada.eventDate) return false;
+        if (cursada.eventDate < weekStart || cursada.eventDate > weekEnd) return false;
+      }
     }
     return true;
   });

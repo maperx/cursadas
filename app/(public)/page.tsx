@@ -44,6 +44,7 @@ async function CursadasGrid({
     carreraId: searchParams.carrera,
     asignaturaId: searchParams.asignatura,
     aulaId: searchParams.aula,
+    vista: searchParams.vista,
   };
 
   const cursadas = (await getCursadasByFilters(filters)).sort((a, b) =>
