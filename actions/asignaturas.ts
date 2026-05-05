@@ -7,7 +7,7 @@ import {
   asignaturaDocentes,
   asignaturaRecesos,
 } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 const recesoSchema = z
@@ -181,6 +181,61 @@ export async function updateAsignatura(id: string, formData: FormData) {
   revalidatePath("/admin/cursadas");
   revalidatePath("/");
   return { success: true };
+}
+
+const bulkRecesoSchema = z.object({
+  asignaturaIds: z.array(z.string().uuid()).min(1, "Seleccione al menos una asignatura"),
+  receso: recesoSchema,
+});
+
+export async function applyBulkReceso(input: {
+  asignaturaIds: string[];
+  receso: { startDate: string; endDate: string; notes: string | null };
+}) {
+  const validated = bulkRecesoSchema.safeParse(input);
+  if (!validated.success) {
+    return { error: validated.error.flatten() };
+  }
+
+  const { asignaturaIds, receso } = validated.data;
+
+  const result = await db.transaction(async (tx) => {
+    const existing = await tx.query.asignaturaRecesos.findMany({
+      where: inArray(asignaturaRecesos.asignaturaId, asignaturaIds),
+      columns: { id: true, startDate: true, endDate: true },
+    });
+
+    const overlappingIds = existing
+      .filter(
+        (r) => r.startDate <= receso.endDate && r.endDate >= receso.startDate
+      )
+      .map((r) => r.id);
+
+    if (overlappingIds.length > 0) {
+      await tx
+        .delete(asignaturaRecesos)
+        .where(inArray(asignaturaRecesos.id, overlappingIds));
+    }
+
+    await tx.insert(asignaturaRecesos).values(
+      asignaturaIds.map((asignaturaId) => ({
+        asignaturaId,
+        startDate: receso.startDate,
+        endDate: receso.endDate,
+        notes: receso.notes ?? null,
+      }))
+    );
+
+    return {
+      applied: asignaturaIds.length,
+      replaced: overlappingIds.length,
+    };
+  });
+
+  revalidatePath("/admin/asignaturas");
+  revalidatePath("/admin/cursadas");
+  revalidatePath("/");
+  return { success: true, ...result };
 }
 
 export async function deleteAsignatura(id: string) {

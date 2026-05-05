@@ -3,10 +3,12 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/admin/data-table";
 import { AsignaturaDialog } from "./asignatura-dialog";
+import { BulkRecesoDialog } from "./bulk-receso-dialog";
 import { DeleteDialog } from "@/components/admin/delete-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CalendarOff, Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
 import { deleteAsignatura } from "@/actions/asignaturas";
 
 type Carrera = {
@@ -52,6 +54,30 @@ interface AsignaturasTableProps {
 
 export function AsignaturasTable({ data, carreras, docentes }: AsignaturasTableProps) {
   const columns: ColumnDef<Asignatura>[] = [
+    {
+      id: "select",
+      header: ({ table }) => {
+        const allSelected = table.getIsAllPageRowsSelected();
+        const someSelected = table.getIsSomePageRowsSelected();
+        return (
+          <Checkbox
+            checked={allSelected || (someSelected && "indeterminate")}
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+            aria-label="Seleccionar todas"
+          />
+        );
+      },
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Seleccionar fila"
+        />
+      ),
+      enableSorting: false,
+    },
     {
       accessorKey: "name",
       header: "Nombre",
@@ -151,6 +177,8 @@ export function AsignaturasTable({ data, carreras, docentes }: AsignaturasTableP
       data={data}
       searchColumn="name"
       searchPlaceholder="Buscar asignatura..."
+      enableRowSelection
+      getRowId={(row) => row.id}
       filters={[
         {
           column: "carrera",
@@ -158,6 +186,17 @@ export function AsignaturasTable({ data, carreras, docentes }: AsignaturasTableP
           placeholder: "Todas las carreras",
         },
       ]}
+      renderToolbar={({ selectedIds, clearSelection }) => (
+        <BulkRecesoDialog
+          asignaturaIds={selectedIds}
+          onApplied={clearSelection}
+        >
+          <Button size="sm" variant="default">
+            <CalendarOff className="h-4 w-4 mr-1" />
+            Aplicar receso
+          </Button>
+        </BulkRecesoDialog>
+      )}
     />
   );
 }

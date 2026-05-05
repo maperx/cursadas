@@ -10,6 +10,7 @@ import {
   SortingState,
   getFilteredRowModel,
   ColumnFiltersState,
+  RowSelectionState,
 } from "@tanstack/react-table";
 import {
   Table,
@@ -48,6 +49,12 @@ interface DataTableProps<TData> {
   searchColumn?: string;
   searchPlaceholder?: string;
   filters?: Filter[];
+  enableRowSelection?: boolean;
+  getRowId?: (row: TData) => string;
+  renderToolbar?: (args: {
+    selectedIds: string[];
+    clearSelection: () => void;
+  }) => React.ReactNode;
 }
 
 export function DataTable<TData>({
@@ -56,9 +63,13 @@ export function DataTable<TData>({
   searchColumn,
   searchPlaceholder = "Buscar...",
   filters,
+  enableRowSelection,
+  getRowId,
+  renderToolbar,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
   const table = useReactTable({
     data,
@@ -69,11 +80,18 @@ export function DataTable<TData>({
     getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: enableRowSelection ?? false,
+    getRowId,
     state: {
       sorting,
       columnFilters,
+      rowSelection,
     },
   });
+
+  const selectedIds = enableRowSelection ? Object.keys(rowSelection) : [];
+  const clearSelection = () => setRowSelection({});
 
   return (
     <div className="space-y-4">
@@ -119,6 +137,16 @@ export function DataTable<TData>({
               </SelectContent>
             </Select>
           ))}
+        </div>
+      )}
+      {renderToolbar && selectedIds.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/40 px-3 py-2">
+          <div className="text-sm font-medium">
+            {selectedIds.length} seleccionada(s)
+          </div>
+          <div className="flex items-center gap-2">
+            {renderToolbar({ selectedIds, clearSelection })}
+          </div>
         </div>
       )}
       <div className="rounded-md border">

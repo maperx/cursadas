@@ -336,7 +336,7 @@ export function PublicWeeklyView({ cursadas }: PublicWeeklyViewProps) {
                             variant="destructive"
                             className="ml-1 text-[10px] px-1 py-0"
                           >
-                            Evento
+                            Evento/Examen
                           </Badge>
                         )}
                       </div>
