@@ -2,9 +2,24 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { asignaturas, asignaturaDocentes } from "@/lib/db/schema";
+import {
+  asignaturas,
+  asignaturaDocentes,
+  asignaturaRecesos,
+} from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+
+const recesoSchema = z
+  .object({
+    startDate: z.string().min(1, "Fecha de inicio requerida"),
+    endDate: z.string().min(1, "Fecha de fin requerida"),
+    notes: z.string().optional().nullable(),
+  })
+  .refine((r) => r.startDate <= r.endDate, {
+    message: "La fecha de inicio debe ser anterior o igual a la de fin",
+    path: ["endDate"],
+  });
 
 const asignaturaSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
@@ -13,6 +28,7 @@ const asignaturaSchema = z.object({
   endDate: z.string().optional().nullable(),
   visible: z.boolean().default(true),
   docenteIds: z.array(z.string()).optional(),
+  recesos: z.array(recesoSchema).default([]),
 });
 
 export async function getAsignaturas() {
@@ -24,6 +40,7 @@ export async function getAsignaturas() {
           user: true,
         },
       },
+      recesos: true,
     },
     orderBy: (asignaturas, { asc }) => [asc(asignaturas.name)],
   });
@@ -39,6 +56,7 @@ export async function getAsignatura(id: string) {
           user: true,
         },
       },
+      recesos: true,
     },
   });
 }
@@ -52,6 +70,7 @@ export async function getAsignaturasByCarrera(carreraId: string) {
 
 export async function createAsignatura(formData: FormData) {
   const docenteIdsRaw = formData.get("docenteIds") as string;
+  const recesosRaw = formData.get("recesos") as string;
   const data = {
     name: formData.get("name") as string,
     carreraId: formData.get("carreraId") as string,
@@ -59,6 +78,7 @@ export async function createAsignatura(formData: FormData) {
     endDate: formData.get("endDate") as string || null,
     visible: formData.get("visible") === "true",
     docenteIds: docenteIdsRaw ? JSON.parse(docenteIdsRaw) : [],
+    recesos: recesosRaw ? JSON.parse(recesosRaw) : [],
   };
 
   const validated = asignaturaSchema.safeParse(data);
@@ -84,6 +104,17 @@ export async function createAsignatura(formData: FormData) {
     );
   }
 
+  if (validated.data.recesos.length > 0) {
+    await db.insert(asignaturaRecesos).values(
+      validated.data.recesos.map((r) => ({
+        asignaturaId: newAsignatura.id,
+        startDate: r.startDate,
+        endDate: r.endDate,
+        notes: r.notes ?? null,
+      }))
+    );
+  }
+
   revalidatePath("/admin/asignaturas");
   revalidatePath("/admin/cursadas");
   revalidatePath("/");
@@ -92,6 +123,7 @@ export async function createAsignatura(formData: FormData) {
 
 export async function updateAsignatura(id: string, formData: FormData) {
   const docenteIdsRaw = formData.get("docenteIds") as string;
+  const recesosRaw = formData.get("recesos") as string;
   const data = {
     name: formData.get("name") as string,
     carreraId: formData.get("carreraId") as string,
@@ -99,6 +131,7 @@ export async function updateAsignatura(id: string, formData: FormData) {
     endDate: formData.get("endDate") as string || null,
     visible: formData.get("visible") === "true",
     docenteIds: docenteIdsRaw ? JSON.parse(docenteIdsRaw) : [],
+    recesos: recesosRaw ? JSON.parse(recesosRaw) : [],
   };
 
   const validated = asignaturaSchema.safeParse(data);
@@ -126,6 +159,20 @@ export async function updateAsignatura(id: string, formData: FormData) {
       validated.data.docenteIds.map((userId) => ({
         asignaturaId: id,
         userId,
+      }))
+    );
+  }
+
+  // Update recesos - delete all and re-add
+  await db.delete(asignaturaRecesos).where(eq(asignaturaRecesos.asignaturaId, id));
+
+  if (validated.data.recesos.length > 0) {
+    await db.insert(asignaturaRecesos).values(
+      validated.data.recesos.map((r) => ({
+        asignaturaId: id,
+        startDate: r.startDate,
+        endDate: r.endDate,
+        notes: r.notes ?? null,
       }))
     );
   }

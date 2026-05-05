@@ -27,6 +27,7 @@ type Cursada = {
     name: string;
     startDate: string | null;
     endDate: string | null;
+    recesos: { startDate: string; endDate: string }[];
   };
   cursadaDocentes: {
     user: { id: string; name: string };
@@ -193,6 +194,11 @@ export function PublicWeeklyView({ cursadas }: PublicWeeklyViewProps) {
   const baseHeight = (gridEndMinutes - gridStartMinutes) * PIXELS_PER_MINUTE;
   const hours = Array.from({ length: maxHour - minHour }, (_, i) => minHour + i);
 
+  const dateByDay = new Map<number, string>();
+  DAYS.forEach((day, i) => {
+    dateByDay.set(day, toDateStr(dayDates[i]));
+  });
+
   const cursadasByDay = new Map<number, Cursada[]>();
   for (const day of DAYS) {
     cursadasByDay.set(day, []);
@@ -200,9 +206,14 @@ export function PublicWeeklyView({ cursadas }: PublicWeeklyViewProps) {
   for (const cursada of activeData) {
     if (cursada.weeklyRepetition) {
       for (const day of cursada.daysOfWeek) {
-        if (DAYS.includes(day)) {
-          cursadasByDay.get(day)!.push(cursada);
-        }
+        if (!DAYS.includes(day)) continue;
+        const dateStr = dateByDay.get(day)!;
+        // Skip if this specific date falls within a receso period
+        const inReceso = cursada.asignatura.recesos.some(
+          (r) => dateStr >= r.startDate && dateStr <= r.endDate
+        );
+        if (inReceso) continue;
+        cursadasByDay.get(day)!.push(cursada);
       }
     } else if (cursada.eventDate) {
       const [y, m, d] = cursada.eventDate.split("-").map(Number);

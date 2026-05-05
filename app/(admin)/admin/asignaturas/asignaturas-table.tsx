@@ -21,6 +21,13 @@ type Docente = {
   email: string;
 };
 
+type Receso = {
+  id: string;
+  startDate: string;
+  endDate: string;
+  notes: string | null;
+};
+
 type Asignatura = {
   id: string;
   name: string;
@@ -34,6 +41,7 @@ type Asignatura = {
   asignaturaDocentes: {
     user: Docente;
   }[];
+  recesos: Receso[];
 };
 
 interface AsignaturasTableProps {
@@ -86,6 +94,14 @@ export function AsignaturasTable({ data, carreras, docentes }: AsignaturasTableP
       },
     },
     {
+      id: "recesos",
+      header: "Recesos",
+      cell: ({ row }) => {
+        const count = row.original.recesos.length;
+        return count === 0 ? "-" : `${count}`;
+      },
+    },
+    {
       accessorKey: "visible",
       header: "Visible",
       cell: ({ row }) => (
@@ -102,6 +118,11 @@ export function AsignaturasTable({ data, carreras, docentes }: AsignaturasTableP
             asignatura={{
               ...row.original,
               docenteIds: row.original.asignaturaDocentes.map((ad) => ad.user.id),
+              recesos: row.original.recesos.map((r) => ({
+                startDate: r.startDate,
+                endDate: r.endDate,
+                notes: r.notes,
+              })),
             }}
             carreras={carreras}
             docentes={docentes}

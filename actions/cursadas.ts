@@ -42,7 +42,9 @@ export async function getCursadas() {
     with: {
       aula: true,
       carrera: true,
-      asignatura: true,
+      asignatura: {
+        with: { recesos: true },
+      },
       cursadaDocentes: {
         with: {
           user: true,
@@ -59,7 +61,9 @@ export async function getCursada(id: string) {
     with: {
       aula: true,
       carrera: true,
-      asignatura: true,
+      asignatura: {
+        with: { recesos: true },
+      },
       cursadaDocentes: {
         with: {
           user: true,
@@ -77,7 +81,7 @@ export async function getCursadasByDocente(userId: string) {
         with: {
           aula: true,
           carrera: true,
-          asignatura: true,
+          asignatura: { with: { recesos: true } },
           cursadaDocentes: { with: { user: true } },
         },
       },
@@ -92,7 +96,7 @@ export async function getCursadasByDay(dayOfWeek: number) {
     with: {
       aula: true,
       carrera: true,
-      asignatura: true,
+      asignatura: { with: { recesos: true } },
       cursadaDocentes: {
         with: {
           user: true,
@@ -110,13 +114,14 @@ export async function hasExamenes(): Promise<boolean> {
   const today = new Date().toISOString().slice(0, 10);
   const allExams = await db.query.cursadas.findMany({
     where: eq(cursadas.examen, true),
-    with: { asignatura: true, carrera: true },
+    with: { asignatura: { with: { recesos: true } }, carrera: true },
   });
   return allExams.some((exam) => {
     if (!exam.carrera.visible || !exam.asignatura.visible) return false;
     if (exam.weeklyRepetition) {
       if (exam.asignatura.startDate && today < exam.asignatura.startDate) return false;
       if (exam.asignatura.endDate && today > exam.asignatura.endDate) return false;
+      if (isDateInRecesos(today, exam.asignatura.recesos)) return false;
       return true;
     } else {
       return !!exam.eventDate && exam.eventDate >= today;
@@ -127,7 +132,7 @@ export async function hasExamenes(): Promise<boolean> {
 export async function hasExamenesForDay(dayOfWeek: number): Promise<boolean> {
   const allExams = await db.query.cursadas.findMany({
     where: eq(cursadas.examen, true),
-    with: { asignatura: true, carrera: true },
+    with: { asignatura: { with: { recesos: true } }, carrera: true },
   });
 
   const today = new Date().toISOString().slice(0, 10);
@@ -138,6 +143,7 @@ export async function hasExamenesForDay(dayOfWeek: number): Promise<boolean> {
       if (!exam.daysOfWeek.includes(dayOfWeek)) return false;
       if (exam.asignatura.startDate && today < exam.asignatura.startDate) return false;
       if (exam.asignatura.endDate && today > exam.asignatura.endDate) return false;
+      if (isDateInRecesos(today, exam.asignatura.recesos)) return false;
       return true;
     } else {
       if (!exam.eventDate) return false;
@@ -160,7 +166,7 @@ export async function getCursadasByFilters(filters: {
     with: {
       aula: true,
       carrera: true,
-      asignatura: true,
+      asignatura: { with: { recesos: true } },
       cursadaDocentes: {
         with: {
           user: true,
@@ -203,6 +209,8 @@ export async function getCursadasByFilters(filters: {
       if (cursada.weeklyRepetition) {
         if (cursada.asignatura.startDate && today < cursada.asignatura.startDate) return false;
         if (cursada.asignatura.endDate && today > cursada.asignatura.endDate) return false;
+        // Hide weekly cursadas during a receso period
+        if (isDateInRecesos(today, cursada.asignatura.recesos)) return false;
       }
       // Single-date events: only show if within current week
       if (!cursada.weeklyRepetition) {
@@ -251,6 +259,13 @@ function timeToMinutes(time: string): number {
   return hours * 60 + mins;
 }
 
+function isDateInRecesos(
+  date: string,
+  recesos: { startDate: string; endDate: string }[]
+): boolean {
+  return recesos.some((r) => date >= r.startDate && date <= r.endDate);
+}
+
 function datesOverlap(
   startA: string | null,
   endA: string | null,
@@ -278,9 +293,10 @@ async function checkAulaConflict(
   eventDate: string | null | undefined,
   excludeCursadaId?: string
 ): Promise<{ error: string | null; warnings: string[] }> {
-  // Fetch the new cursada's asignatura to get date range
+  // Fetch the new cursada's asignatura to get date range and recesos
   const newAsignatura = await db.query.asignaturas.findFirst({
     where: eq(asignaturas.id, asignaturaId),
+    with: { recesos: true },
   });
 
   const existingCursadas = await db.query.cursadas.findMany({
@@ -288,7 +304,7 @@ async function checkAulaConflict(
       ? and(eq(cursadas.aulaId, aulaId), ne(cursadas.id, excludeCursadaId))
       : eq(cursadas.aulaId, aulaId),
     with: {
-      asignatura: true,
+      asignatura: { with: { recesos: true } },
       aula: true,
     },
   });
@@ -322,6 +338,8 @@ async function checkAulaConflict(
       // Also check if eventDate falls within existing's asignatura date range
       if (existing.asignatura.startDate && eventDate < existing.asignatura.startDate) continue;
       if (existing.asignatura.endDate && eventDate > existing.asignatura.endDate) continue;
+      // Skip conflict if eventDate falls within a receso of existing's asignatura
+      if (isDateInRecesos(eventDate, existing.asignatura.recesos)) continue;
       hasSharedDay = true;
       conflictLabel = eventDate;
     } else {
@@ -332,6 +350,8 @@ async function checkAulaConflict(
       // Also check if existing's eventDate falls within new's asignatura date range
       if (newAsignatura?.startDate && existing.eventDate < newAsignatura.startDate) continue;
       if (newAsignatura?.endDate && existing.eventDate > newAsignatura.endDate) continue;
+      // Skip conflict if existing's eventDate falls within a receso of new's asignatura
+      if (newAsignatura && isDateInRecesos(existing.eventDate, newAsignatura.recesos)) continue;
       hasSharedDay = true;
       conflictLabel = existing.eventDate;
     }

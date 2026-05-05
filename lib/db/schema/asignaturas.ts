@@ -24,7 +24,31 @@ export const asignaturasRelations = relations(asignaturas, ({ one, many }) => ({
   }),
   cursadas: many(cursadas),
   asignaturaDocentes: many(asignaturaDocentes),
+  recesos: many(asignaturaRecesos),
 }));
+
+// Periodos de receso de la asignatura (vacaciones, semana santa, etc).
+// Durante estos rangos no se muestra el cursado semanal regular.
+export const asignaturaRecesos = pgTable("asignatura_recesos", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  asignaturaId: uuid("asignatura_id")
+    .notNull()
+    .references(() => asignaturas.id, { onDelete: "cascade" }),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const asignaturaRecesosRelations = relations(
+  asignaturaRecesos,
+  ({ one }) => ({
+    asignatura: one(asignaturas, {
+      fields: [asignaturaRecesos.asignaturaId],
+      references: [asignaturas.id],
+    }),
+  })
+);
 
 // Junction table for asignaturas <-> docentes (many-to-many)
 export const asignaturaDocentes = pgTable("asignatura_docentes", {

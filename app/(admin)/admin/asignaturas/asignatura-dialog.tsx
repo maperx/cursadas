@@ -22,6 +22,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/use-toast";
+import { Plus, Trash2 } from "lucide-react";
 import { createAsignatura, updateAsignatura } from "@/actions/asignaturas";
 
 type Carrera = {
@@ -36,6 +37,12 @@ type Docente = {
   email: string;
 };
 
+type RecesoInput = {
+  startDate: string;
+  endDate: string;
+  notes: string | null;
+};
+
 interface AsignaturaDialogProps {
   children: React.ReactNode;
   carreras: Carrera[];
@@ -48,6 +55,7 @@ interface AsignaturaDialogProps {
     endDate: string | null;
     visible: boolean;
     docenteIds: string[];
+    recesos: RecesoInput[];
   };
 }
 
@@ -66,8 +74,25 @@ export function AsignaturaDialog({
   const [selectedDocentes, setSelectedDocentes] = useState<string[]>(
     asignatura?.docenteIds || []
   );
+  const [recesos, setRecesos] = useState<RecesoInput[]>(
+    asignatura?.recesos || []
+  );
 
   const isEditing = !!asignatura;
+
+  const addReceso = () => {
+    setRecesos((prev) => [...prev, { startDate: "", endDate: "", notes: "" }]);
+  };
+
+  const removeReceso = (index: number) => {
+    setRecesos((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateReceso = (index: number, field: keyof RecesoInput, value: string) => {
+    setRecesos((prev) =>
+      prev.map((r, i) => (i === index ? { ...r, [field]: value } : r))
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -78,6 +103,14 @@ export function AsignaturaDialog({
     formData.set("carreraId", selectedCarrera);
     formData.set("visible", visible ? "true" : "false");
     formData.set("docenteIds", JSON.stringify(selectedDocentes));
+    const cleanRecesos = recesos
+      .filter((r) => r.startDate && r.endDate)
+      .map((r) => ({
+        startDate: r.startDate,
+        endDate: r.endDate,
+        notes: r.notes || null,
+      }));
+    formData.set("recesos", JSON.stringify(cleanRecesos));
 
     const result = isEditing
       ? await updateAsignatura(asignatura.id, formData)
@@ -212,6 +245,90 @@ export function AsignaturaDialog({
                 ))
               )}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Periodos de receso (opcional)</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addReceso}
+                disabled={isLoading}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Agregar
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Durante estos periodos no se mostrará el cursado semanal. Útil
+              para vacaciones o semanas de exámenes.
+            </p>
+            {recesos.length === 0 ? (
+              <p className="text-sm text-muted-foreground border rounded-md p-3 text-center">
+                Sin periodos de receso
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {recesos.map((receso, index) => (
+                  <div
+                    key={index}
+                    className="border rounded-md p-3 space-y-2"
+                  >
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Desde</Label>
+                        <Input
+                          type="date"
+                          value={receso.startDate}
+                          onChange={(e) =>
+                            updateReceso(index, "startDate", e.target.value)
+                          }
+                          disabled={isLoading}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Hasta</Label>
+                        <Input
+                          type="date"
+                          value={receso.endDate}
+                          onChange={(e) =>
+                            updateReceso(index, "endDate", e.target.value)
+                          }
+                          disabled={isLoading}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1 space-y-1">
+                        <Label className="text-xs">Nota (opcional)</Label>
+                        <Input
+                          value={receso.notes || ""}
+                          onChange={(e) =>
+                            updateReceso(index, "notes", e.target.value)
+                          }
+                          placeholder="Receso de invierno..."
+                          disabled={isLoading}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeReceso(index)}
+                        disabled={isLoading}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {errors.recesos && (
+              <p className="text-sm text-destructive">{errors.recesos[0]}</p>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
