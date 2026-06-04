@@ -32,6 +32,7 @@ type Cursada = {
   cursadaDocentes: {
     user: { id: string; name: string };
   }[];
+  suspensiones: { date: string; observacion: string | null }[];
 };
 
 interface PublicWeeklyViewProps {
@@ -317,11 +318,16 @@ export function PublicWeeklyView({ cursadas }: PublicWeeklyViewProps) {
                     cursada.startTime,
                     cursada.durationMinutes
                   );
+                  const occurrenceDate = dateByDay.get(day)!;
+                  const suspension = cursada.suspensiones.find(
+                    (s) => s.date === occurrenceDate
+                  );
+                  const isSuspended = !!suspension;
 
                   return (
                     <div
                       key={`${cursada.id}-${day}`}
-                      className="absolute right-1 left-1 overflow-hidden rounded-md border p-1.5 text-xs"
+                      className={`absolute right-1 left-1 overflow-hidden rounded-md border p-1.5 text-xs ${isSuspended ? "opacity-60" : ""}`}
                       style={{
                         top,
                         height,
@@ -329,7 +335,7 @@ export function PublicWeeklyView({ cursadas }: PublicWeeklyViewProps) {
                         borderColor: cursada.carrera.color,
                       }}
                     >
-                      <div className="font-semibold leading-tight">
+                      <div className={`font-semibold leading-tight ${isSuspended ? "line-through" : ""}`}>
                         {cursada.asignatura.name}
                         {cursada.examen && (
                           <Badge
@@ -340,6 +346,14 @@ export function PublicWeeklyView({ cursadas }: PublicWeeklyViewProps) {
                           </Badge>
                         )}
                       </div>
+                      {isSuspended && (
+                        <Badge
+                          variant="destructive"
+                          className="my-0.5 text-[10px] px-1 py-0"
+                        >
+                          Suspendida
+                        </Badge>
+                      )}
                       <div className="text-muted-foreground">
                         {formatTime(cursada.startTime)} - {endTime}
                       </div>
@@ -349,6 +363,11 @@ export function PublicWeeklyView({ cursadas }: PublicWeeklyViewProps) {
                       {cursada.commissionNumber && (
                         <div className="text-muted-foreground">
                           Com. {cursada.commissionNumber}
+                        </div>
+                      )}
+                      {isSuspended && suspension?.observacion && (
+                        <div className="text-destructive italic truncate">
+                          {suspension.observacion}
                         </div>
                       )}
                       {cursada.notes && (

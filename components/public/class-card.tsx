@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, MapPin, User, StickyNote } from "lucide-react";
+import { Clock, MapPin, User, StickyNote, Ban } from "lucide-react";
 import { formatTime, addMinutesToTime, getDayName } from "@/lib/utils";
 
 interface ClassCardProps {
@@ -32,6 +32,7 @@ interface ClassCardProps {
         name: string;
       };
     }[];
+    suspension?: { date: string; observacion: string | null } | null;
   };
   index?: number;
 }
@@ -41,6 +42,10 @@ export function ClassCard({ cursada, index = 0 }: ClassCardProps) {
   const docenteNames = cursada.cursadaDocentes
     .map((cd) => cd.user.name)
     .join(", ");
+  const isSuspended = !!cursada.suspension;
+  const suspensionDateLabel = cursada.suspension
+    ? cursada.suspension.date.split("-").reverse().join("/")
+    : "";
 
   return (
     <motion.div
@@ -50,7 +55,7 @@ export function ClassCard({ cursada, index = 0 }: ClassCardProps) {
       whileHover={{ scale: 1.02 }}
       className="h-full"
     >
-      <Card className="h-full overflow-hidden hover:shadow-lg transition-shadow">
+      <Card className={`h-full overflow-hidden hover:shadow-lg transition-shadow ${isSuspended ? "opacity-70" : ""}`}>
         <div
           className="h-2"
           style={{ backgroundColor: cursada.carrera.color }}
@@ -58,7 +63,7 @@ export function ClassCard({ cursada, index = 0 }: ClassCardProps) {
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h3 className="font-semibold leading-tight">
+              <h3 className={`font-semibold leading-tight ${isSuspended ? "line-through" : ""}`}>
                 {cursada.asignatura.name}
               </h3>
               {cursada.commissionNumber && (
@@ -68,14 +73,36 @@ export function ClassCard({ cursada, index = 0 }: ClassCardProps) {
               )}
             </div>
           </div>
-          <Badge
-            style={{ backgroundColor: cursada.carrera.color }}
-            className="text-white shrink-0"
-          >
-            {cursada.carrera.name}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-1">
+            <Badge
+              style={{ backgroundColor: cursada.carrera.color }}
+              className="text-white shrink-0"
+            >
+              {cursada.carrera.name}
+            </Badge>
+            {isSuspended && (
+              <Badge variant="destructive" className="shrink-0">
+                Suspendida
+              </Badge>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
+          {isSuspended && (
+            <div className="flex items-start gap-2 text-sm rounded-md bg-destructive/10 border border-destructive/20 p-2">
+              <Ban className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+              <div>
+                <span className="font-medium text-destructive">
+                  Clase suspendida el {suspensionDateLabel}
+                </span>
+                {cursada.suspension?.observacion && (
+                  <p className="text-muted-foreground">
+                    {cursada.suspension.observacion}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
           <div className="flex items-center gap-2 text-sm">
             <Clock className="h-4 w-4 text-muted-foreground" />
             <span>

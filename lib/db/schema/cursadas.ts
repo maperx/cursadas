@@ -7,6 +7,7 @@ import {
   boolean,
   time,
   date,
+  unique,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { aulas } from "./aulas";
@@ -53,7 +54,37 @@ export const cursadasRelations = relations(cursadas, ({ one, many }) => ({
   }),
   cursadaDocentes: many(cursadaDocentes),
   inscripciones: many(inscripciones),
+  suspensiones: many(cursadaSuspensiones),
 }));
+
+// Suspensión de una repetición puntual de una cursada (una fecha específica).
+// No afecta las demás repeticiones: solo se omite/marca el dictado de esa fecha.
+export const cursadaSuspensiones = pgTable(
+  "cursada_suspensiones",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    cursadaId: uuid("cursada_id")
+      .notNull()
+      .references(() => cursadas.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    observacion: text("observacion"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => ({
+    // Una sola suspensión por (cursada, fecha)
+    cursadaDateUnique: unique().on(t.cursadaId, t.date),
+  })
+);
+
+export const cursadaSuspensionesRelations = relations(
+  cursadaSuspensiones,
+  ({ one }) => ({
+    cursada: one(cursadas, {
+      fields: [cursadaSuspensiones.cursadaId],
+      references: [cursadas.id],
+    }),
+  })
+);
 
 // Junction table for cursadas <-> docentes (many-to-many)
 export const cursadaDocentes = pgTable("cursada_docentes", {

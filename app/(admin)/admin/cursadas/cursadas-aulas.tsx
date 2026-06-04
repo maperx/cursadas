@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getDayFullName, formatTime, addMinutesToTime } from "@/lib/utils";
 import { CursadaDialog } from "./cursada-dialog";
-import { ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { SuspensionDialog } from "./suspension-dialog";
+import { ChevronLeft, ChevronRight, Pencil, Trash2, Ban } from "lucide-react";
 import { DeleteDialog } from "@/components/admin/delete-dialog";
 import { deleteCursada } from "@/actions/cursadas";
 
@@ -44,6 +45,7 @@ type Cursada = {
   cursadaDocentes: {
     user: { id: string; name: string; email: string };
   }[];
+  suspensiones: { date: string; observacion: string | null }[];
 };
 
 type Asignatura = {
@@ -316,6 +318,10 @@ export function CursadasAulas({
                     cursada.startTime,
                     cursada.durationMinutes
                   );
+                  const suspension = cursada.suspensiones.find(
+                    (s) => s.date === selectedDateStr
+                  );
+                  const isSuspended = !!suspension;
 
                   return (
                     <CursadaDialog
@@ -332,7 +338,7 @@ export function CursadasAulas({
                       aulas={aulas}
                     >
                       <div
-                        className="absolute right-1 left-1 overflow-hidden rounded-md border p-1.5 text-xs cursor-pointer hover:brightness-95 transition-[filter]"
+                        className={`absolute right-1 left-1 overflow-hidden rounded-md border p-1.5 text-xs cursor-pointer hover:brightness-95 transition-[filter] ${isSuspended ? "opacity-60" : ""}`}
                         style={{
                           top,
                           height,
@@ -340,7 +346,7 @@ export function CursadasAulas({
                           borderColor: cursada.carrera.color,
                         }}
                       >
-                        <div className="font-semibold leading-tight">
+                        <div className={`font-semibold leading-tight ${isSuspended ? "line-through" : ""}`}>
                           {cursada.asignatura.name}
                           {cursada.examen && (
                             <Badge variant="destructive" className="ml-1 text-[10px] px-1 py-0">
@@ -348,6 +354,11 @@ export function CursadasAulas({
                             </Badge>
                           )}
                         </div>
+                        {isSuspended && (
+                          <Badge variant="destructive" className="my-0.5 text-[10px] px-1 py-0">
+                            Suspendida
+                          </Badge>
+                        )}
                         {cursada.commissionNumber && (
                           <div className="text-muted-foreground">
                             Comisión {cursada.commissionNumber}
@@ -363,6 +374,11 @@ export function CursadasAulas({
                               .join(", ")}
                           </div>
                         )}
+                        {isSuspended && suspension?.observacion && (
+                          <div className="text-destructive italic truncate">
+                            {suspension.observacion}
+                          </div>
+                        )}
                         {cursada.notes && (
                           <div className="text-muted-foreground italic truncate">
                             {cursada.notes}
@@ -376,6 +392,19 @@ export function CursadasAulas({
                         </Badge>
                         <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
                           <Pencil className="h-3 w-3 text-muted-foreground" />
+                          <SuspensionDialog
+                            cursadaId={cursada.id}
+                            date={selectedDateStr}
+                            asignaturaName={cursada.asignatura.name}
+                            suspension={suspension ?? null}
+                          >
+                            <button
+                              onClick={(e) => e.stopPropagation()}
+                              title={isSuspended ? "Editar suspensión" : "Suspender este día"}
+                            >
+                              <Ban className={`h-3 w-3 ${isSuspended ? "text-destructive" : "text-muted-foreground"}`} />
+                            </button>
+                          </SuspensionDialog>
                           <DeleteDialog
                             title="Eliminar Cursada"
                             description={`¿Estás seguro de que deseas eliminar esta cursada de "${cursada.asignatura.name}"? Esta acción no se puede deshacer.`}

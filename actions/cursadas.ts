@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { cursadas, cursadaDocentes, asignaturas } from "@/lib/db/schema";
+import {
+  cursadas,
+  cursadaDocentes,
+  cursadaSuspensiones,
+  asignaturas,
+} from "@/lib/db/schema";
 import { eq, and, ne } from "drizzle-orm";
 import { z } from "zod";
 
@@ -50,6 +55,7 @@ export async function getCursadas() {
           user: true,
         },
       },
+      suspensiones: true,
     },
     orderBy: (cursadas, { asc }) => [asc(cursadas.startTime)],
   });
@@ -69,6 +75,7 @@ export async function getCursada(id: string) {
           user: true,
         },
       },
+      suspensiones: true,
     },
   });
 }
@@ -83,6 +90,7 @@ export async function getCursadasByDocente(userId: string) {
           carrera: true,
           asignatura: { with: { recesos: true } },
           cursadaDocentes: { with: { user: true } },
+          suspensiones: true,
         },
       },
     },
@@ -102,6 +110,7 @@ export async function getCursadasByDay(dayOfWeek: number) {
           user: true,
         },
       },
+      suspensiones: true,
     },
   });
 
@@ -172,6 +181,7 @@ export async function getCursadasByFilters(filters: {
           user: true,
         },
       },
+      suspensiones: true,
     },
   });
 
@@ -251,7 +261,36 @@ export async function getCursadasByFilters(filters: {
     });
   });
 
-  return [...eventos, ...remainingCursadas];
+  // For the day-list view each cursada resolves to one concrete date, so we can
+  // attach the matching suspension (if any). In the weekly view the client
+  // resolves suspensions per column date from the `suspensiones` array instead.
+  const isSemanal = filters.vista === "semanal";
+  const dayListDow = filters.dayOfWeek ?? new Date().getDay();
+  const dayListDate = dateOfDowInWeek(monday, dayListDow);
+
+  const result = [...eventos, ...remainingCursadas].map((cursada) => {
+    let suspension: { date: string; observacion: string | null } | null = null;
+    if (!isSemanal) {
+      const occurrenceDate = cursada.weeklyRepetition
+        ? dayListDate
+        : cursada.eventDate;
+      if (occurrenceDate) {
+        suspension =
+          cursada.suspensiones.find((s) => s.date === occurrenceDate) ?? null;
+      }
+    }
+    return { ...cursada, suspension };
+  });
+
+  return result;
+}
+
+/** Date (YYYY-MM-DD) of the given day-of-week within the week starting at `monday`. */
+function dateOfDowInWeek(monday: Date, dayOfWeek: number): string {
+  const offset = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Mon=0 ... Sun=6
+  const d = new Date(monday);
+  d.setDate(monday.getDate() + offset);
+  return d.toISOString().slice(0, 10);
 }
 
 function timeToMinutes(time: string): number {
@@ -547,6 +586,68 @@ export async function updateCursada(id: string, formData: FormData) {
 
 export async function deleteCursada(id: string) {
   await db.delete(cursadas).where(eq(cursadas.id, id));
+  revalidatePath("/admin/cursadas");
+  revalidatePath("/");
+  return { success: true };
+}
+
+const suspensionSchema = z.object({
+  cursadaId: z.string().uuid("Cursada inválida"),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida"),
+  observacion: z.string().trim().max(500, "La observación es muy larga").optional(),
+});
+
+/**
+ * Marca una repetición puntual (cursada + fecha) como suspendida con una
+ * observación opcional. Si ya existía una suspensión para esa fecha, actualiza
+ * la observación. No afecta las demás repeticiones de la cursada.
+ */
+export async function suspendCursadaRepeticion(input: {
+  cursadaId: string;
+  date: string;
+  observacion?: string;
+}) {
+  const validated = suspensionSchema.safeParse(input);
+  if (!validated.success) {
+    return { error: validated.error.flatten().fieldErrors };
+  }
+
+  const { cursadaId, date, observacion } = validated.data;
+
+  await db
+    .insert(cursadaSuspensiones)
+    .values({ cursadaId, date, observacion: observacion || null })
+    .onConflictDoUpdate({
+      target: [cursadaSuspensiones.cursadaId, cursadaSuspensiones.date],
+      set: { observacion: observacion || null },
+    });
+
+  revalidatePath("/admin/cursadas");
+  revalidatePath("/");
+  return { success: true };
+}
+
+/** Quita la suspensión de una repetición puntual (cursada + fecha). */
+export async function removeCursadaSuspension(input: {
+  cursadaId: string;
+  date: string;
+}) {
+  const validated = suspensionSchema
+    .pick({ cursadaId: true, date: true })
+    .safeParse(input);
+  if (!validated.success) {
+    return { error: validated.error.flatten().fieldErrors };
+  }
+
+  await db
+    .delete(cursadaSuspensiones)
+    .where(
+      and(
+        eq(cursadaSuspensiones.cursadaId, validated.data.cursadaId),
+        eq(cursadaSuspensiones.date, validated.data.date)
+      )
+    );
+
   revalidatePath("/admin/cursadas");
   revalidatePath("/");
   return { success: true };

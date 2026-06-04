@@ -60,6 +60,7 @@ type Cursada = {
   cursadaDocentes: {
     user: Docente;
   }[];
+  suspensiones: { date: string; observacion: string | null }[];
 };
 
 export type ViewMode = "table" | "weekly" | "daily" | "aulas";
