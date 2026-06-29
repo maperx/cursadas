@@ -10,7 +10,9 @@ import {
   SortingState,
   getFilteredRowModel,
   ColumnFiltersState,
+  PaginationState,
   RowSelectionState,
+  OnChangeFn,
 } from "@tanstack/react-table";
 import {
   Table,
@@ -29,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 
 interface FilterOption {
@@ -70,6 +72,19 @@ export function DataTable<TData>({
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  });
+
+  // When the user changes a search/filter, go back to the first page (expected
+  // UX). Pagination is controlled and autoResetPageIndex is disabled so that a
+  // data refresh (e.g. router.refresh() after editing a row) keeps the current
+  // page instead of jumping back to page 1.
+  const handleColumnFiltersChange: OnChangeFn<ColumnFiltersState> = (updater) => {
+    setColumnFilters(updater);
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+  };
 
   const table = useReactTable({
     data,
@@ -79,16 +94,31 @@ export function DataTable<TData>({
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
+    onColumnFiltersChange: handleColumnFiltersChange,
     onRowSelectionChange: setRowSelection,
+    onPaginationChange: setPagination,
+    autoResetPageIndex: false,
     enableRowSelection: enableRowSelection ?? false,
     getRowId,
     state: {
       sorting,
       columnFilters,
       rowSelection,
+      pagination,
     },
   });
+
+  // Clamp the page if it falls out of range (e.g. after deleting the last row
+  // of the last page) so we never show an empty page.
+  const pageCount = table.getPageCount();
+  useEffect(() => {
+    if (pagination.pageIndex > 0 && pagination.pageIndex > pageCount - 1) {
+      setPagination((prev) => ({
+        ...prev,
+        pageIndex: Math.max(0, pageCount - 1),
+      }));
+    }
+  }, [pageCount, pagination.pageIndex]);
 
   const selectedIds = enableRowSelection ? Object.keys(rowSelection) : [];
   const clearSelection = () => setRowSelection({});
