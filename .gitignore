@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# documentación privada del régimen especial (datos personales)
+/uploads
+
 # debug
 npm-debug.log*
 yarn-debug.log*

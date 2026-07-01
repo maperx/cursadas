@@ -6,6 +6,7 @@ import {
   Newspaper,
   UserCog,
   ClipboardList,
+  ClipboardCheck,
   DoorOpen,
   type LucideIcon,
 } from "lucide-react";
@@ -51,6 +52,12 @@ export const navItems: NavItem[] = [
     title: "Inscripciones",
     href: "/admin/inscripciones",
     icon: ClipboardList,
+    roles: ["admin"],
+  },
+  {
+    title: "Régimen especial",
+    href: "/admin/regimen-especial",
+    icon: ClipboardCheck,
     roles: ["admin"],
   },
   {

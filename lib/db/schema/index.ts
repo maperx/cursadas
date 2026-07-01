@@ -9,3 +9,4 @@ export * from "./aulas";
 export * from "./cursadas";
 export * from "./inscripciones";
 export * from "./noticias";
+export * from "./regimen-especial";

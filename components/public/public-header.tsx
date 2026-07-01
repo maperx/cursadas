@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogIn, LogOut, Newspaper, Settings, User, BookOpen, ExternalLink } from "lucide-react";
+import { LogIn, LogOut, Newspaper, Settings, User, BookOpen, ScrollText, ExternalLink } from "lucide-react";
 import Image from "next/image";
 
 export function PublicHeader() {
@@ -48,12 +48,20 @@ export function PublicHeader() {
           {session ? (
             <>
               {session.user.role === "estudiante" && (
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href="/mis-cursadas">
-                    <BookOpen className="h-4 w-4 mr-2" />
-                    Mis Cursadas
-                  </Link>
-                </Button>
+                <>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href="/mis-cursadas">
+                      <BookOpen className="h-4 w-4 mr-2" />
+                      Mis Cursadas
+                    </Link>
+                  </Button>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href="/regimen-especial">
+                      <ScrollText className="h-4 w-4 mr-2" />
+                      Régimen especial
+                    </Link>
+                  </Button>
+                </>
               )}
               {session.user.role === "docente" && (
                 <Button variant="ghost" size="sm" asChild>
