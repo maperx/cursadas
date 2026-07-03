@@ -16,6 +16,14 @@ export const auth = betterAuth({
       verification: schema.verification,
     },
   }),
+  session: {
+    // Sesión de larga duración para que la app (sobre todo instalada en el
+    // celular) no cierre la sesión automáticamente. La cookie es persistente
+    // (rememberMe por defecto) y HttpOnly, por lo que sobrevive a cierres del
+    // navegador y no la afectan los límites de ITP en iOS.
+    expiresIn: 60 * 60 * 24 * 60, // 60 días de validez
+    updateAge: 60 * 60 * 24, // se renueva (rolling) una vez por día de uso
+  },
   emailVerification: {
     sendVerificationEmail: async ({ user, url }) => {
       await sendEmail({
