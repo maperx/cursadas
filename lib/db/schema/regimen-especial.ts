@@ -12,6 +12,7 @@ import { user } from "./auth";
 import { carreras } from "./carreras";
 import { asignaturas } from "./asignaturas";
 import {
+  REGIMEN_CAMBIO_ESTADOS,
   REGIMEN_DOC_TIPOS,
   REGIMEN_ESTADOS,
   REGIMEN_MOTIVOS,
@@ -19,6 +20,10 @@ import {
 } from "../../regimen-especial";
 
 export const regimenEstadoEnum = pgEnum("regimen_estado", REGIMEN_ESTADOS);
+export const regimenCambioEstadoEnum = pgEnum(
+  "regimen_cambio_estado",
+  REGIMEN_CAMBIO_ESTADOS
+);
 export const regimenMotivoEnum = pgEnum("regimen_motivo", REGIMEN_MOTIVOS);
 export const regimenSedeEnum = pgEnum("regimen_sede", REGIMEN_SEDES);
 export const regimenDocumentoTipoEnum = pgEnum(
@@ -50,6 +55,17 @@ export const regimenSolicitudes = pgTable("regimen_solicitudes", {
     onDelete: "set null",
   }),
   reviewedAt: timestamp("reviewed_at"),
+  // Sub-flujo de cambio de comisión (disponible una vez aprobada la solicitud).
+  // El estudiante carga los cambios por asignatura mientras está "pendiente";
+  // el admin los aprueba ("aprobado") y a partir de ahí quedan bloqueados.
+  cambioComisionEstado: regimenCambioEstadoEnum("cambio_comision_estado")
+    .notNull()
+    .default("pendiente"),
+  cambioComisionAprobadoBy: text("cambio_comision_aprobado_by").references(
+    () => user.id,
+    { onDelete: "set null" }
+  ),
+  cambioComisionAprobadoAt: timestamp("cambio_comision_aprobado_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -81,6 +97,11 @@ export const regimenAsignaturas = pgTable(
     asignaturaId: uuid("asignatura_id")
       .notNull()
       .references(() => asignaturas.id, { onDelete: "cascade" }),
+    // Cambio de comisión declarado por el estudiante (opcional por asignatura).
+    // comisionActual: dónde está inscripto hoy; comisionDeseada: a dónde quiere
+    // pasarse. Ambos texto libre; vacío = sin cambio para esa asignatura.
+    comisionActual: text("comision_actual"),
+    comisionDeseada: text("comision_deseada"),
   },
   (t) => ({
     uniqueSolicitudAsignatura: unique().on(t.solicitudId, t.asignaturaId),

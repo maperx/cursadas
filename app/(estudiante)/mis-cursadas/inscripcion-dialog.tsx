@@ -94,7 +94,7 @@ export function InscripcionDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[80vh]">
+      <DialogContent className="flex max-h-[85vh] max-w-2xl flex-col">
         <DialogHeader>
           <DialogTitle>Inscribirme a una cursada</DialogTitle>
           <DialogDescription>
@@ -109,7 +109,7 @@ export function InscripcionDialog({
           className="mb-4"
         />
 
-        <ScrollArea className="h-[400px] pr-4">
+        <ScrollArea className="min-h-0 flex-1 pr-4">
           {filteredCursadas.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               {search

@@ -17,9 +17,14 @@ export default async function RegimenEspecialAdminPage() {
     observacionesRevision: s.observacionesRevision,
     createdAt: s.createdAt,
     reviewedAt: s.reviewedAt,
+    cambioComisionEstado: s.cambioComisionEstado,
     carrera: { name: s.carrera.name, color: s.carrera.color },
     user: { name: s.user.name, email: s.user.email },
-    asignaturas: s.asignaturas.map((a) => ({ name: a.asignatura.name })),
+    asignaturas: s.asignaturas.map((a) => ({
+      name: a.asignatura.name,
+      comisionActual: a.comisionActual,
+      comisionDeseada: a.comisionDeseada,
+    })),
     documentos: s.documentos.map((d) => ({
       id: d.id,
       tipo: d.tipo,

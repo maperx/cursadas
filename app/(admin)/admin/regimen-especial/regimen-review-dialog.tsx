@@ -15,13 +15,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/use-toast";
-import { Check, FileText, X } from "lucide-react";
-import { updateEstadoSolicitud } from "@/actions/regimen-especial";
+import { ArrowRight, Check, FileText, Lock, Unlock, X } from "lucide-react";
 import {
+  aprobarCambioComision,
+  reabrirCambioComision,
+  updateEstadoSolicitud,
+} from "@/actions/regimen-especial";
+import {
+  CAMBIO_ESTADO_LABELS,
   DOC_TIPO_LABELS,
   ESTADO_LABELS,
   MOTIVO_LABELS,
   SEDE_LABELS,
+  type RegimenCambioEstado,
   type RegimenDocTipo,
   type RegimenEstado,
   type RegimenMotivo,
@@ -41,9 +47,14 @@ export type Solicitud = {
   observacionesRevision: string | null;
   createdAt: Date;
   reviewedAt: Date | null;
+  cambioComisionEstado: RegimenCambioEstado;
   carrera: { name: string; color: string };
   user: { name: string; email: string };
-  asignaturas: { name: string }[];
+  asignaturas: {
+    name: string;
+    comisionActual: string | null;
+    comisionDeseada: string | null;
+  }[];
   documentos: { id: string; tipo: RegimenDocTipo; originalName: string }[];
 };
 
@@ -76,6 +87,49 @@ export function RegimenReviewDialog({
   const [open, setOpen] = useState(false);
   const [nota, setNota] = useState(solicitud.observacionesRevision || "");
   const [loading, setLoading] = useState<"aprobada" | "rechazada" | null>(null);
+  const [cambioLoading, setCambioLoading] = useState(false);
+
+  const cambiosComision = solicitud.asignaturas.filter(
+    (a) => a.comisionActual || a.comisionDeseada
+  );
+
+  const handleCambioComision = async (action: "aprobar" | "reabrir") => {
+    setCambioLoading(true);
+    try {
+      const result =
+        action === "aprobar"
+          ? await aprobarCambioComision(solicitud.id)
+          : await reabrirCambioComision(solicitud.id);
+      if (result.error) {
+        toast({
+          title: "Error",
+          description: result.error,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title:
+            action === "aprobar"
+              ? "Cambio de comisión aprobado"
+              : "Edición reabierta",
+          description:
+            action === "aprobar"
+              ? "El estudiante ya no puede modificar las comisiones."
+              : "El estudiante puede volver a editar las comisiones.",
+          variant: "success",
+        });
+        router.refresh();
+      }
+    } catch {
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el cambio de comisión",
+        variant: "destructive",
+      });
+    } finally {
+      setCambioLoading(false);
+    }
+  };
 
   const handleDecision = async (estado: "aprobada" | "rechazada") => {
     if (estado === "rechazada" && !nota.trim()) {
@@ -191,6 +245,82 @@ export function RegimenReviewDialog({
               ))}
             </div>
           </div>
+
+          {solicitud.estado === "aprobada" && (
+            <div className="space-y-3 rounded-md border p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium">Cambio de comisión</p>
+                <Badge
+                  variant={
+                    solicitud.cambioComisionEstado === "aprobado"
+                      ? "success"
+                      : "warning"
+                  }
+                >
+                  {CAMBIO_ESTADO_LABELS[solicitud.cambioComisionEstado]}
+                </Badge>
+              </div>
+
+              {cambiosComision.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  El estudiante todavía no cargó cambios de comisión.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {cambiosComision.map((a, i) => (
+                    <div
+                      key={i}
+                      className="flex flex-wrap items-center gap-2 text-sm"
+                    >
+                      <span className="font-medium">{a.name}:</span>
+                      <span>{a.comisionActual || "—"}</span>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                      <span>{a.comisionDeseada || "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {solicitud.cambioComisionEstado === "pendiente" ? (
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => handleCambioComision("aprobar")}
+                    disabled={cambioLoading || cambiosComision.length === 0}
+                  >
+                    {cambioLoading ? (
+                      <Spinner size="sm" />
+                    ) : (
+                      <>
+                        <Lock className="h-4 w-4 mr-1" />
+                        Aprobar cambio de comisión
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCambioComision("reabrir")}
+                    disabled={cambioLoading}
+                  >
+                    {cambioLoading ? (
+                      <Spinner size="sm" />
+                    ) : (
+                      <>
+                        <Unlock className="h-4 w-4 mr-1" />
+                        Reabrir edición
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="nota">

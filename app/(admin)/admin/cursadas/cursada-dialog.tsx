@@ -283,7 +283,7 @@ export function CursadaDialog({
               <p className="text-sm text-destructive font-medium">{errors._form[0]}</p>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Carrera</Label>
               <Select
@@ -340,7 +340,7 @@ export function CursadaDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Aula</Label>
               <Select

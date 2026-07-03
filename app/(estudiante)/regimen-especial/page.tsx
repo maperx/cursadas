@@ -5,6 +5,7 @@ import { getCarreras } from "@/actions/carreras";
 import { getAsignaturas } from "@/actions/asignaturas";
 import { RegimenForm } from "./regimen-form";
 import { RegimenEstado } from "./regimen-estado";
+import { CambiosComisionForm } from "./cambios-comision-form";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,18 @@ export default async function RegimenEspecialPage() {
       <div className="mx-auto max-w-3xl space-y-6">
         <Header />
         <RegimenEstado solicitud={solicitud} />
+        {solicitud.estado === "aprobada" && (
+          <CambiosComisionForm
+            solicitudId={solicitud.id}
+            estado={solicitud.cambioComisionEstado}
+            asignaturas={solicitud.asignaturas.map((a) => ({
+              asignaturaId: a.asignaturaId,
+              nombre: a.asignatura.name,
+              comisionActual: a.comisionActual,
+              comisionDeseada: a.comisionDeseada,
+            }))}
+          />
+        )}
       </div>
     );
   }

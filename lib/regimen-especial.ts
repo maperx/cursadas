@@ -5,6 +5,12 @@
 export const REGIMEN_ESTADOS = ["pendiente", "aprobada", "rechazada"] as const;
 export type RegimenEstado = (typeof REGIMEN_ESTADOS)[number];
 
+// Estado del sub-flujo de "cambio de comisión", disponible una vez que la
+// solicitud fue aprobada. El estudiante carga los cambios mientras está
+// "pendiente"; cuando el admin los aprueba pasa a "aprobado" y se bloquea.
+export const REGIMEN_CAMBIO_ESTADOS = ["pendiente", "aprobado"] as const;
+export type RegimenCambioEstado = (typeof REGIMEN_CAMBIO_ESTADOS)[number];
+
 export const REGIMEN_MOTIVOS = ["laboral", "personas_a_cargo", "ambos"] as const;
 export type RegimenMotivo = (typeof REGIMEN_MOTIVOS)[number];
 
@@ -61,6 +67,11 @@ export const ESTADO_LABELS: Record<RegimenEstado, string> = {
   pendiente: "Pendiente",
   aprobada: "Aprobada",
   rechazada: "Rechazada",
+};
+
+export const CAMBIO_ESTADO_LABELS: Record<RegimenCambioEstado, string> = {
+  pendiente: "Pendiente de aprobación",
+  aprobado: "Aprobado",
 };
 
 export const DOC_TIPO_LABELS: Record<RegimenDocTipo, string> = {

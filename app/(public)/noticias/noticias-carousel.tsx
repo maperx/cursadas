@@ -86,8 +86,8 @@ export function NoticiasCarousel({ noticias }: NoticiasCarouselProps) {
           </CarouselItem>
         ))}
       </CarouselContent>
-      <CarouselPrevious className="left-4 h-10 w-10 bg-white/90 dark:bg-black/60 backdrop-blur-sm border-0 shadow-lg hover:bg-white dark:hover:bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity" />
-      <CarouselNext className="right-4 h-10 w-10 bg-white/90 dark:bg-black/60 backdrop-blur-sm border-0 shadow-lg hover:bg-white dark:hover:bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity" />
+      <CarouselPrevious className="left-4 h-10 w-10 bg-white/90 dark:bg-black/60 backdrop-blur-sm border-0 shadow-lg hover:bg-white dark:hover:bg-black/80 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" />
+      <CarouselNext className="right-4 h-10 w-10 bg-white/90 dark:bg-black/60 backdrop-blur-sm border-0 shadow-lg hover:bg-white dark:hover:bg-black/80 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" />
     </Carousel>
   );
 }

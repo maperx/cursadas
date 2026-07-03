@@ -255,6 +255,137 @@ export async function deleteSolicitudRegimen(id: string) {
   return { success: true };
 }
 
+// --- Cambio de comisión (posterior a la aprobación de la solicitud) ---
+
+const cambiosComisionSchema = z.object({
+  solicitudId: z.string().uuid(),
+  cambios: z.array(
+    z.object({
+      asignaturaId: z.string().uuid(),
+      comisionActual: z.string().max(100).optional().nullable(),
+      comisionDeseada: z.string().max(100).optional().nullable(),
+    })
+  ),
+});
+
+const normComision = (v: string | null | undefined) => {
+  const t = v?.trim();
+  return t ? t : null;
+};
+
+// El estudiante carga/edita los cambios de comisión de su solicitud aprobada.
+export async function updateCambiosComision(input: {
+  solicitudId: string;
+  cambios: {
+    asignaturaId: string;
+    comisionActual: string | null;
+    comisionDeseada: string | null;
+  }[];
+}) {
+  const session = await requireAuth();
+
+  const validated = cambiosComisionSchema.safeParse(input);
+  if (!validated.success) {
+    return { error: "Datos inválidos" };
+  }
+
+  const solicitud = await db.query.regimenSolicitudes.findFirst({
+    where: eq(regimenSolicitudes.id, validated.data.solicitudId),
+    with: { asignaturas: { columns: { asignaturaId: true } } },
+  });
+
+  if (!solicitud || solicitud.userId !== session.user.id) {
+    return { error: "Solicitud no encontrada" };
+  }
+  if (solicitud.estado !== "aprobada") {
+    return { error: "La solicitud todavía no fue aprobada" };
+  }
+  if (solicitud.cambioComisionEstado === "aprobado") {
+    return {
+      error: "Los cambios de comisión ya fueron aprobados y no se pueden editar",
+    };
+  }
+
+  const validAsignaturaIds = new Set(
+    solicitud.asignaturas.map((a) => a.asignaturaId)
+  );
+
+  await db.transaction(async (tx) => {
+    for (const c of validated.data.cambios) {
+      if (!validAsignaturaIds.has(c.asignaturaId)) continue;
+      await tx
+        .update(regimenAsignaturas)
+        .set({
+          comisionActual: normComision(c.comisionActual),
+          comisionDeseada: normComision(c.comisionDeseada),
+        })
+        .where(
+          and(
+            eq(regimenAsignaturas.solicitudId, validated.data.solicitudId),
+            eq(regimenAsignaturas.asignaturaId, c.asignaturaId)
+          )
+        );
+    }
+  });
+
+  revalidatePath("/regimen-especial");
+  revalidatePath("/admin/regimen-especial");
+  return { success: true };
+}
+
+// El admin aprueba el cambio de comisión: a partir de acá queda bloqueado.
+export async function aprobarCambioComision(solicitudId: string) {
+  const session = await requireAdmin();
+
+  const [updated] = await db
+    .update(regimenSolicitudes)
+    .set({
+      cambioComisionEstado: "aprobado",
+      cambioComisionAprobadoBy: session.user.id,
+      cambioComisionAprobadoAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(regimenSolicitudes.id, solicitudId),
+        eq(regimenSolicitudes.estado, "aprobada")
+      )
+    )
+    .returning();
+
+  if (!updated) {
+    return { error: "Solicitud no encontrada o no aprobada" };
+  }
+
+  revalidatePath("/regimen-especial");
+  revalidatePath("/admin/regimen-especial");
+  return { success: true };
+}
+
+// El admin reabre la edición (deshace el bloqueo) del cambio de comisión.
+export async function reabrirCambioComision(solicitudId: string) {
+  await requireAdmin();
+
+  const [updated] = await db
+    .update(regimenSolicitudes)
+    .set({
+      cambioComisionEstado: "pendiente",
+      cambioComisionAprobadoBy: null,
+      cambioComisionAprobadoAt: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(regimenSolicitudes.id, solicitudId))
+    .returning();
+
+  if (!updated) {
+    return { error: "Solicitud no encontrada" };
+  }
+
+  revalidatePath("/regimen-especial");
+  revalidatePath("/admin/regimen-especial");
+  return { success: true };
+}
+
 async function sendRegimenDecisionEmail({
   to,
   nombre,
