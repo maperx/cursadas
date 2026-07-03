@@ -30,12 +30,12 @@ export default async function RegimenEspecialPage() {
         {solicitud.estado === "aprobada" && (
           <CambiosComisionForm
             solicitudId={solicitud.id}
-            estado={solicitud.cambioComisionEstado}
             asignaturas={solicitud.asignaturas.map((a) => ({
               asignaturaId: a.asignaturaId,
               nombre: a.asignatura.name,
               comisionActual: a.comisionActual,
               comisionDeseada: a.comisionDeseada,
+              estado: a.comisionEstado,
             }))}
           />
         )}

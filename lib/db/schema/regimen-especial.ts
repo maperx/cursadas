@@ -55,17 +55,6 @@ export const regimenSolicitudes = pgTable("regimen_solicitudes", {
     onDelete: "set null",
   }),
   reviewedAt: timestamp("reviewed_at"),
-  // Sub-flujo de cambio de comisión (disponible una vez aprobada la solicitud).
-  // El estudiante carga los cambios por asignatura mientras está "pendiente";
-  // el admin los aprueba ("aprobado") y a partir de ahí quedan bloqueados.
-  cambioComisionEstado: regimenCambioEstadoEnum("cambio_comision_estado")
-    .notNull()
-    .default("pendiente"),
-  cambioComisionAprobadoBy: text("cambio_comision_aprobado_by").references(
-    () => user.id,
-    { onDelete: "set null" }
-  ),
-  cambioComisionAprobadoAt: timestamp("cambio_comision_aprobado_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -99,9 +88,20 @@ export const regimenAsignaturas = pgTable(
       .references(() => asignaturas.id, { onDelete: "cascade" }),
     // Cambio de comisión declarado por el estudiante (opcional por asignatura).
     // comisionActual: dónde está inscripto hoy; comisionDeseada: a dónde quiere
-    // pasarse. Ambos texto libre; vacío = sin cambio para esa asignatura.
+    // pasarse. Solo números; vacío = sin cambio para esa asignatura.
     comisionActual: text("comision_actual"),
     comisionDeseada: text("comision_deseada"),
+    // El admin aprueba el cambio de comisión de forma independiente por cada
+    // asignatura. Mientras está "pendiente" el estudiante puede editarlo; al
+    // pasar a "aprobado" queda bloqueado para esa asignatura.
+    comisionEstado: regimenCambioEstadoEnum("comision_estado")
+      .notNull()
+      .default("pendiente"),
+    comisionAprobadoBy: text("comision_aprobado_by").references(
+      () => user.id,
+      { onDelete: "set null" }
+    ),
+    comisionAprobadoAt: timestamp("comision_aprobado_at"),
   },
   (t) => ({
     uniqueSolicitudAsignatura: unique().on(t.solicitudId, t.asignaturaId),

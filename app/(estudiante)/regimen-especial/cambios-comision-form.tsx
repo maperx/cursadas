@@ -19,24 +19,26 @@ type AsignaturaCambio = {
   nombre: string;
   comisionActual: string | null;
   comisionDeseada: string | null;
+  estado: RegimenCambioEstado;
 };
 
 interface CambiosComisionFormProps {
   solicitudId: string;
-  estado: RegimenCambioEstado;
   asignaturas: AsignaturaCambio[];
 }
 
+// Solo dígitos.
+const soloNumeros = (value: string) => value.replace(/[^0-9]/g, "");
+
 export function CambiosComisionForm({
   solicitudId,
-  estado,
   asignaturas,
 }: CambiosComisionFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [rows, setRows] = useState<AsignaturaCambio[]>(asignaturas);
 
-  const bloqueado = estado === "aprobado";
+  const hayEditables = rows.some((r) => r.estado === "pendiente");
 
   const setValue = (
     asignaturaId: string,
@@ -45,7 +47,9 @@ export function CambiosComisionForm({
   ) =>
     setRows((prev) =>
       prev.map((r) =>
-        r.asignaturaId === asignaturaId ? { ...r, [field]: value } : r
+        r.asignaturaId === asignaturaId
+          ? { ...r, [field]: soloNumeros(value) }
+          : r
       )
     );
 
@@ -53,11 +57,14 @@ export function CambiosComisionForm({
     setIsLoading(true);
     const result = await updateCambiosComision({
       solicitudId,
-      cambios: rows.map((r) => ({
-        asignaturaId: r.asignaturaId,
-        comisionActual: r.comisionActual,
-        comisionDeseada: r.comisionDeseada,
-      })),
+      // Se envían solo las asignaturas editables; las aprobadas no se tocan.
+      cambios: rows
+        .filter((r) => r.estado === "pendiente")
+        .map((r) => ({
+          asignaturaId: r.asignaturaId,
+          comisionActual: r.comisionActual,
+          comisionDeseada: r.comisionDeseada,
+        })),
     });
     setIsLoading(false);
 
@@ -73,7 +80,7 @@ export function CambiosComisionForm({
     toast({
       title: "Cambios guardados",
       description:
-        "Quedaron registrados. Un administrador debe aprobarlos para confirmarlos.",
+        "Quedaron registrados. Un administrador debe aprobar cada cambio para confirmarlo.",
       variant: "success",
     });
     router.refresh();
@@ -81,65 +88,80 @@ export function CambiosComisionForm({
 
   return (
     <div className="space-y-4 rounded-lg border p-4 sm:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">Cambio de comisión</h2>
-          <p className="text-sm text-muted-foreground">
-            Indicá, si corresponde, en qué comisión estás inscripto en cada
-            asignatura y a cuál te querés cambiar.
-          </p>
-        </div>
-        <Badge variant={bloqueado ? "success" : "warning"}>
-          {CAMBIO_ESTADO_LABELS[estado]}
-        </Badge>
+      <div>
+        <h2 className="text-lg font-semibold">Cambio de comisión</h2>
+        <p className="text-sm text-muted-foreground">
+          Indicá, si corresponde, en qué comisión estás inscripto en cada
+          asignatura y a cuál te querés cambiar. Cada cambio lo aprueba un
+          administrador por separado; una vez aprobado no se puede modificar.
+        </p>
       </div>
-
-      {bloqueado && (
-        <div className="flex items-center gap-2 rounded-md border bg-muted/40 p-3 text-sm">
-          <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
-          Los cambios de comisión fueron aprobados y ya no pueden modificarse.
-        </div>
-      )}
 
       <div className="space-y-4">
-        {rows.map((row) => (
-          <div
-            key={row.asignaturaId}
-            className="grid gap-3 rounded-md border p-3 sm:grid-cols-[1fr_auto_1fr]"
-          >
-            <div className="space-y-1">
-              <p className="text-sm font-medium">{row.nombre}</p>
-              <p className="text-xs text-muted-foreground">Comisión actual</p>
-              <Input
-                value={row.comisionActual ?? ""}
-                onChange={(e) =>
-                  setValue(row.asignaturaId, "comisionActual", e.target.value)
-                }
-                placeholder="Ej: 1"
-                disabled={bloqueado || isLoading}
-              />
-            </div>
+        {rows.map((row) => {
+          const bloqueada = row.estado === "aprobado";
+          return (
+            <div
+              key={row.asignaturaId}
+              className="space-y-3 rounded-md border p-3"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium">{row.nombre}</p>
+                <Badge variant={bloqueada ? "success" : "warning"}>
+                  {bloqueada && <Lock className="mr-1 h-3 w-3" />}
+                  {CAMBIO_ESTADO_LABELS[row.estado]}
+                </Badge>
+              </div>
 
-            <div className="hidden items-end justify-center pb-2 text-muted-foreground sm:flex">
-              <ArrowRight className="h-4 w-4" />
-            </div>
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr]">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">
+                    Comisión actual
+                  </p>
+                  <Input
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={row.comisionActual ?? ""}
+                    onChange={(e) =>
+                      setValue(
+                        row.asignaturaId,
+                        "comisionActual",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Ej: 1"
+                    disabled={bloqueada || isLoading}
+                  />
+                </div>
 
-            <div className="space-y-1 sm:pt-[1.375rem]">
-              <p className="text-xs text-muted-foreground">Cambiar a</p>
-              <Input
-                value={row.comisionDeseada ?? ""}
-                onChange={(e) =>
-                  setValue(row.asignaturaId, "comisionDeseada", e.target.value)
-                }
-                placeholder="Ej: 3"
-                disabled={bloqueado || isLoading}
-              />
+                <div className="hidden items-end justify-center pb-2 text-muted-foreground sm:flex">
+                  <ArrowRight className="h-4 w-4" />
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Cambiar a</p>
+                  <Input
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={row.comisionDeseada ?? ""}
+                    onChange={(e) =>
+                      setValue(
+                        row.asignaturaId,
+                        "comisionDeseada",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Ej: 3"
+                    disabled={bloqueada || isLoading}
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {!bloqueado && (
+      {hayEditables && (
         <div className="flex justify-end">
           <Button type="button" onClick={handleSave} disabled={isLoading}>
             {isLoading ? <Spinner size="sm" /> : "Guardar cambios"}

@@ -257,13 +257,22 @@ export async function deleteSolicitudRegimen(id: string) {
 
 // --- Cambio de comisión (posterior a la aprobación de la solicitud) ---
 
+// Comisiones: solo números (o vacío). Se valida en el cliente y acá también.
+const comisionInput = z
+  .string()
+  .trim()
+  .max(20)
+  .regex(/^\d*$/, "Las comisiones solo pueden contener números")
+  .optional()
+  .nullable();
+
 const cambiosComisionSchema = z.object({
   solicitudId: z.string().uuid(),
   cambios: z.array(
     z.object({
       asignaturaId: z.string().uuid(),
-      comisionActual: z.string().max(100).optional().nullable(),
-      comisionDeseada: z.string().max(100).optional().nullable(),
+      comisionActual: comisionInput,
+      comisionDeseada: comisionInput,
     })
   ),
 });
@@ -274,6 +283,7 @@ const normComision = (v: string | null | undefined) => {
 };
 
 // El estudiante carga/edita los cambios de comisión de su solicitud aprobada.
+// No se tocan las asignaturas cuyo cambio ya fue aprobado (quedan bloqueadas).
 export async function updateCambiosComision(input: {
   solicitudId: string;
   cambios: {
@@ -286,12 +296,19 @@ export async function updateCambiosComision(input: {
 
   const validated = cambiosComisionSchema.safeParse(input);
   if (!validated.success) {
-    return { error: "Datos inválidos" };
+    const msg =
+      validated.error.issues.find((i) => i.message.includes("números"))
+        ?.message ?? "Datos inválidos";
+    return { error: msg };
   }
 
   const solicitud = await db.query.regimenSolicitudes.findFirst({
     where: eq(regimenSolicitudes.id, validated.data.solicitudId),
-    with: { asignaturas: { columns: { asignaturaId: true } } },
+    with: {
+      asignaturas: {
+        columns: { asignaturaId: true, comisionEstado: true },
+      },
+    },
   });
 
   if (!solicitud || solicitud.userId !== session.user.id) {
@@ -300,19 +317,17 @@ export async function updateCambiosComision(input: {
   if (solicitud.estado !== "aprobada") {
     return { error: "La solicitud todavía no fue aprobada" };
   }
-  if (solicitud.cambioComisionEstado === "aprobado") {
-    return {
-      error: "Los cambios de comisión ya fueron aprobados y no se pueden editar",
-    };
-  }
 
-  const validAsignaturaIds = new Set(
-    solicitud.asignaturas.map((a) => a.asignaturaId)
+  // Estado actual por asignatura: se ignoran las que no pertenecen a la
+  // solicitud y las que ya están aprobadas (bloqueadas).
+  const estadoByAsignatura = new Map(
+    solicitud.asignaturas.map((a) => [a.asignaturaId, a.comisionEstado])
   );
 
   await db.transaction(async (tx) => {
     for (const c of validated.data.cambios) {
-      if (!validAsignaturaIds.has(c.asignaturaId)) continue;
+      const estado = estadoByAsignatura.get(c.asignaturaId);
+      if (estado === undefined || estado === "aprobado") continue;
       await tx
         .update(regimenAsignaturas)
         .set({
@@ -333,28 +348,24 @@ export async function updateCambiosComision(input: {
   return { success: true };
 }
 
-// El admin aprueba el cambio de comisión: a partir de acá queda bloqueado.
-export async function aprobarCambioComision(solicitudId: string) {
+// El admin aprueba el cambio de comisión de UNA asignatura: queda bloqueada.
+export async function aprobarCambioComisionAsignatura(
+  regimenAsignaturaId: string
+) {
   const session = await requireAdmin();
 
   const [updated] = await db
-    .update(regimenSolicitudes)
+    .update(regimenAsignaturas)
     .set({
-      cambioComisionEstado: "aprobado",
-      cambioComisionAprobadoBy: session.user.id,
-      cambioComisionAprobadoAt: new Date(),
-      updatedAt: new Date(),
+      comisionEstado: "aprobado",
+      comisionAprobadoBy: session.user.id,
+      comisionAprobadoAt: new Date(),
     })
-    .where(
-      and(
-        eq(regimenSolicitudes.id, solicitudId),
-        eq(regimenSolicitudes.estado, "aprobada")
-      )
-    )
+    .where(eq(regimenAsignaturas.id, regimenAsignaturaId))
     .returning();
 
   if (!updated) {
-    return { error: "Solicitud no encontrada o no aprobada" };
+    return { error: "Asignatura no encontrada" };
   }
 
   revalidatePath("/regimen-especial");
@@ -362,28 +373,187 @@ export async function aprobarCambioComision(solicitudId: string) {
   return { success: true };
 }
 
-// El admin reabre la edición (deshace el bloqueo) del cambio de comisión.
-export async function reabrirCambioComision(solicitudId: string) {
+// El admin reabre la edición del cambio de comisión de UNA asignatura.
+export async function reabrirCambioComisionAsignatura(
+  regimenAsignaturaId: string
+) {
   await requireAdmin();
 
   const [updated] = await db
-    .update(regimenSolicitudes)
+    .update(regimenAsignaturas)
     .set({
-      cambioComisionEstado: "pendiente",
-      cambioComisionAprobadoBy: null,
-      cambioComisionAprobadoAt: null,
-      updatedAt: new Date(),
+      comisionEstado: "pendiente",
+      comisionAprobadoBy: null,
+      comisionAprobadoAt: null,
     })
-    .where(eq(regimenSolicitudes.id, solicitudId))
+    .where(eq(regimenAsignaturas.id, regimenAsignaturaId))
     .returning();
 
   if (!updated) {
-    return { error: "Solicitud no encontrada" };
+    return { error: "Asignatura no encontrada" };
   }
 
   revalidatePath("/regimen-especial");
   revalidatePath("/admin/regimen-especial");
   return { success: true };
+}
+
+// --- Informe de cambios de comisión (para el panel admin) ---
+
+export type ReporteFlujo = { desde: string; hacia: string; count: number };
+
+export type ReporteCarrera = {
+  carreraId: string;
+  carrera: string;
+  color: string;
+  estudiantes: number;
+  cambios: number;
+  aprobados: number;
+  pendientes: number;
+};
+
+export type ReporteAsignatura = {
+  asignaturaId: string;
+  asignatura: string;
+  carrera: string;
+  color: string;
+  estudiantes: number;
+  aprobados: number;
+  pendientes: number;
+  flujos: ReporteFlujo[];
+};
+
+export type ReporteCambiosComision = {
+  totals: {
+    estudiantes: number;
+    cambios: number;
+    aprobados: number;
+    pendientes: number;
+    carreras: number;
+    asignaturas: number;
+  };
+  porCarrera: ReporteCarrera[];
+  porAsignatura: ReporteAsignatura[];
+};
+
+// Un "cambio de comisión" es una asignatura de una solicitud aprobada donde el
+// estudiante declaró comisión actual y/o deseada (mismo criterio que usa la
+// pantalla de revisión). Un estudiante "migra" si tiene al menos un cambio.
+const esCambioComision = (a: {
+  comisionActual: string | null;
+  comisionDeseada: string | null;
+}) => Boolean(a.comisionActual || a.comisionDeseada);
+
+export async function getReporteCambiosComision(): Promise<ReporteCambiosComision> {
+  await requireAdmin();
+
+  const solicitudes = await db.query.regimenSolicitudes.findMany({
+    where: eq(regimenSolicitudes.estado, "aprobada"),
+    with: {
+      carrera: { columns: { id: true, name: true, color: true } },
+      asignaturas: {
+        with: { asignatura: { columns: { id: true, name: true } } },
+      },
+    },
+  });
+
+  const carreraMap = new Map<string, ReporteCarrera>();
+  const asignaturaMap = new Map<
+    string,
+    ReporteAsignatura & { flujoMap: Map<string, ReporteFlujo> }
+  >();
+
+  let totalEstudiantes = 0;
+  let totalCambios = 0;
+  let totalAprobados = 0;
+  let totalPendientes = 0;
+
+  for (const s of solicitudes) {
+    const cambios = s.asignaturas.filter(esCambioComision);
+    if (cambios.length === 0) continue;
+
+    totalEstudiantes++;
+
+    let carrera = carreraMap.get(s.carrera.id);
+    if (!carrera) {
+      carrera = {
+        carreraId: s.carrera.id,
+        carrera: s.carrera.name,
+        color: s.carrera.color,
+        estudiantes: 0,
+        cambios: 0,
+        aprobados: 0,
+        pendientes: 0,
+      };
+      carreraMap.set(s.carrera.id, carrera);
+    }
+    carrera.estudiantes++;
+
+    for (const a of cambios) {
+      const aprobado = a.comisionEstado === "aprobado";
+      totalCambios++;
+      if (aprobado) totalAprobados++;
+      else totalPendientes++;
+
+      carrera.cambios++;
+      if (aprobado) carrera.aprobados++;
+      else carrera.pendientes++;
+
+      let asig = asignaturaMap.get(a.asignaturaId);
+      if (!asig) {
+        asig = {
+          asignaturaId: a.asignaturaId,
+          asignatura: a.asignatura.name,
+          carrera: s.carrera.name,
+          color: s.carrera.color,
+          estudiantes: 0,
+          aprobados: 0,
+          pendientes: 0,
+          flujos: [],
+          flujoMap: new Map(),
+        };
+        asignaturaMap.set(a.asignaturaId, asig);
+      }
+      // Una fila por (solicitud, asignatura) ⇒ un estudiante por cambio.
+      asig.estudiantes++;
+      if (aprobado) asig.aprobados++;
+      else asig.pendientes++;
+
+      const desde = a.comisionActual || "—";
+      const hacia = a.comisionDeseada || "—";
+      const key = `${desde}→${hacia}`;
+      let flujo = asig.flujoMap.get(key);
+      if (!flujo) {
+        flujo = { desde, hacia, count: 0 };
+        asig.flujoMap.set(key, flujo);
+      }
+      flujo.count++;
+    }
+  }
+
+  const porCarrera = [...carreraMap.values()].sort(
+    (a, b) => b.estudiantes - a.estudiantes || b.cambios - a.cambios
+  );
+
+  const porAsignatura = [...asignaturaMap.values()]
+    .map(({ flujoMap, ...rest }) => ({
+      ...rest,
+      flujos: [...flujoMap.values()].sort((a, b) => b.count - a.count),
+    }))
+    .sort((a, b) => b.estudiantes - a.estudiantes || b.aprobados - a.aprobados);
+
+  return {
+    totals: {
+      estudiantes: totalEstudiantes,
+      cambios: totalCambios,
+      aprobados: totalAprobados,
+      pendientes: totalPendientes,
+      carreras: carreraMap.size,
+      asignaturas: asignaturaMap.size,
+    },
+    porCarrera,
+    porAsignatura,
+  };
 }
 
 async function sendRegimenDecisionEmail({

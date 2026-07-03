@@ -1,4 +1,7 @@
+import Link from "next/link";
+import { BarChart3 } from "lucide-react";
 import { getSolicitudesRegimen } from "@/actions/regimen-especial";
+import { Button } from "@/components/ui/button";
 import { RegimenTable } from "./regimen-table";
 
 export default async function RegimenEspecialAdminPage() {
@@ -17,13 +20,14 @@ export default async function RegimenEspecialAdminPage() {
     observacionesRevision: s.observacionesRevision,
     createdAt: s.createdAt,
     reviewedAt: s.reviewedAt,
-    cambioComisionEstado: s.cambioComisionEstado,
     carrera: { name: s.carrera.name, color: s.carrera.color },
     user: { name: s.user.name, email: s.user.email },
     asignaturas: s.asignaturas.map((a) => ({
+      id: a.id,
       name: a.asignatura.name,
       comisionActual: a.comisionActual,
       comisionDeseada: a.comisionDeseada,
+      comisionEstado: a.comisionEstado,
     })),
     documentos: s.documentos.map((d) => ({
       id: d.id,
@@ -34,13 +38,21 @@ export default async function RegimenEspecialAdminPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-          Régimen especial
-        </h1>
-        <p className="text-muted-foreground">
-          Solicitudes de inscripción al régimen especial de cursado
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            Régimen especial
+          </h1>
+          <p className="text-muted-foreground">
+            Solicitudes de inscripción al régimen especial de cursado
+          </p>
+        </div>
+        <Button variant="outline" asChild className="w-fit">
+          <Link href="/admin/regimen-especial/reporte">
+            <BarChart3 className="h-4 w-4" />
+            Ver informe
+          </Link>
+        </Button>
       </div>
 
       <RegimenTable data={data} />
