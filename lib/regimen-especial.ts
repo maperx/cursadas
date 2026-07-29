@@ -86,6 +86,19 @@ export const DOC_TIPO_LABELS: Record<RegimenDocTipo, string> = {
   vinculo_otro: "Otra documentación que acredite el vínculo",
 };
 
+// Las comisiones son solo dígitos. La comisión actual se carga junto con la
+// solicitud (una por asignatura marcada); la deseada, después de la aprobación.
+export const soloNumeros = (value: string) => value.replace(/[^0-9]/g, "");
+
+// Hay un "cambio de comisión" cuando el estudiante pidió una comisión distinta
+// de aquella en la que declaró estar inscripto al enviar la solicitud.
+export function esCambioComision(a: {
+  comisionActual: string | null;
+  comisionDeseada: string | null;
+}): boolean {
+  return Boolean(a.comisionDeseada) && a.comisionDeseada !== a.comisionActual;
+}
+
 export function motivoIncluyeLaboral(motivo: RegimenMotivo): boolean {
   return motivo === "laboral" || motivo === "ambos";
 }

@@ -28,6 +28,7 @@ import {
   SEDE_LABELS,
   motivoIncluyeLaboral,
   motivoIncluyePersonas,
+  soloNumeros,
   type RegimenDocTipo,
   type RegimenMotivo,
 } from "@/lib/regimen-especial";
@@ -49,7 +50,9 @@ export function RegimenForm({ carreras, asignaturas }: RegimenFormProps) {
   const [motivo, setMotivo] = useState<RegimenMotivo | "">("");
   const [sede, setSede] = useState("");
   const [carreraId, setCarreraId] = useState("");
-  const [asignaturaIds, setAsignaturaIds] = useState<string[]>([]);
+  // Asignaturas marcadas → comisión en la que el estudiante está inscripto.
+  // La clave presente en el objeto es lo que marca la asignatura seleccionada.
+  const [comisiones, setComisiones] = useState<Record<string, string>>({});
   const [docs, setDocs] = useState<Record<string, UploadedDoc | null>>({});
 
   const setDoc = (tipo: RegimenDocTipo, doc: UploadedDoc | null) =>
@@ -61,13 +64,19 @@ export function RegimenForm({ carreras, asignaturas }: RegimenFormProps) {
   );
 
   const toggleAsignatura = (id: string) =>
-    setAsignaturaIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setComisiones((prev) => {
+      if (!(id in prev)) return { ...prev, [id]: "" };
+      const rest = { ...prev };
+      delete rest[id];
+      return rest;
+    });
+
+  const setComision = (id: string, value: string) =>
+    setComisiones((prev) => ({ ...prev, [id]: soloNumeros(value) }));
 
   const handleCarreraChange = (value: string) => {
     setCarreraId(value);
-    setAsignaturaIds([]);
+    setComisiones({});
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -79,7 +88,15 @@ export function RegimenForm({ carreras, asignaturas }: RegimenFormProps) {
     formData.set("motivo", motivo);
     formData.set("sede", sede);
     formData.set("carreraId", carreraId);
-    formData.set("asignaturaIds", JSON.stringify(asignaturaIds));
+    formData.set(
+      "asignaturas",
+      JSON.stringify(
+        Object.entries(comisiones).map(([asignaturaId, comision]) => ({
+          asignaturaId,
+          comision,
+        }))
+      )
+    );
 
     const documentos = Object.entries(docs)
       .filter(([, v]) => v)
@@ -233,7 +250,12 @@ export function RegimenForm({ carreras, asignaturas }: RegimenFormProps) {
         <h2 className="text-lg font-semibold">
           Asignaturas en las que te inscribiste a cursar
         </h2>
-        <div className="rounded-md border p-3 max-h-60 overflow-y-auto space-y-2">
+        <p className="text-sm text-muted-foreground">
+          Marcá cada asignatura e indicá el número de comisión en la que estás
+          inscripto. Si más adelante pedís un cambio de comisión, se usará ese
+          número como comisión de origen.
+        </p>
+        <div className="rounded-md border p-3 max-h-72 overflow-y-auto space-y-2">
           {!carreraId ? (
             <p className="text-sm text-muted-foreground">
               Seleccioná primero una carrera.
@@ -243,26 +265,52 @@ export function RegimenForm({ carreras, asignaturas }: RegimenFormProps) {
               No hay asignaturas disponibles para esta carrera.
             </p>
           ) : (
-            asignaturasDeCarrera.map((a) => (
-              <div key={a.id} className="flex items-center gap-2">
-                <Checkbox
-                  id={`asig-${a.id}`}
-                  checked={asignaturaIds.includes(a.id)}
-                  onCheckedChange={() => toggleAsignatura(a.id)}
-                  disabled={isLoading}
-                />
-                <label
-                  htmlFor={`asig-${a.id}`}
-                  className="text-sm cursor-pointer"
+            asignaturasDeCarrera.map((a) => {
+              const seleccionada = a.id in comisiones;
+              return (
+                <div
+                  key={a.id}
+                  className="flex flex-wrap items-center gap-2 sm:flex-nowrap"
                 >
-                  {a.name}
-                </label>
-              </div>
-            ))
+                  <Checkbox
+                    id={`asig-${a.id}`}
+                    checked={seleccionada}
+                    onCheckedChange={() => toggleAsignatura(a.id)}
+                    disabled={isLoading}
+                  />
+                  <label
+                    htmlFor={`asig-${a.id}`}
+                    className="flex-1 text-sm cursor-pointer"
+                  >
+                    {a.name}
+                  </label>
+                  {seleccionada && (
+                    <div className="flex items-center gap-2">
+                      <Label
+                        htmlFor={`comision-${a.id}`}
+                        className="text-xs text-muted-foreground"
+                      >
+                        Comisión
+                      </Label>
+                      <Input
+                        id={`comision-${a.id}`}
+                        className="h-8 w-20"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        placeholder="Ej: 1"
+                        value={comisiones[a.id]}
+                        onChange={(e) => setComision(a.id, e.target.value)}
+                        disabled={isLoading}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
-        {errors.asignaturaIds && (
-          <p className="text-sm text-destructive">{errors.asignaturaIds[0]}</p>
+        {errors.asignaturas && (
+          <p className="text-sm text-destructive">{errors.asignaturas[0]}</p>
         )}
       </section>
 

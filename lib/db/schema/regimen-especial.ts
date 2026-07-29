@@ -86,9 +86,11 @@ export const regimenAsignaturas = pgTable(
     asignaturaId: uuid("asignatura_id")
       .notNull()
       .references(() => asignaturas.id, { onDelete: "cascade" }),
-    // Cambio de comisión declarado por el estudiante (opcional por asignatura).
-    // comisionActual: dónde está inscripto hoy; comisionDeseada: a dónde quiere
-    // pasarse. Solo números; vacío = sin cambio para esa asignatura.
+    // comisionActual: comisión en la que el estudiante declaró estar inscripto
+    // al enviar la solicitud (obligatoria por asignatura desde entonces; null
+    // en las solicitudes anteriores a este campo).
+    // comisionDeseada: a dónde quiere pasarse, se carga recién con la solicitud
+    // aprobada. Solo números; vacío = sin cambio para esa asignatura.
     comisionActual: text("comision_actual"),
     comisionDeseada: text("comision_deseada"),
     // El admin aprueba el cambio de comisión de forma independiente por cada

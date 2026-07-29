@@ -27,6 +27,7 @@ import {
   ESTADO_LABELS,
   MOTIVO_LABELS,
   SEDE_LABELS,
+  esCambioComision,
   type RegimenCambioEstado,
   type RegimenDocTipo,
   type RegimenEstado,
@@ -90,9 +91,7 @@ export function RegimenReviewDialog({
   const [loading, setLoading] = useState<"aprobada" | "rechazada" | null>(null);
   const [cambioLoadingId, setCambioLoadingId] = useState<string | null>(null);
 
-  const cambiosComision = solicitud.asignaturas.filter(
-    (a) => a.comisionActual || a.comisionDeseada
-  );
+  const cambiosComision = solicitud.asignaturas.filter(esCambioComision);
 
   const handleCambioComision = async (
     asignaturaId: string,
@@ -202,7 +201,9 @@ export function RegimenReviewDialog({
           </div>
 
           <div>
-            <p className="mb-2 text-xs text-muted-foreground">Asignaturas</p>
+            <p className="mb-2 text-xs text-muted-foreground">
+              Asignaturas (con la comisión declarada)
+            </p>
             <div className="flex flex-wrap gap-2">
               {solicitud.asignaturas.length === 0 ? (
                 <span className="text-sm text-muted-foreground">-</span>
@@ -210,6 +211,11 @@ export function RegimenReviewDialog({
                 solicitud.asignaturas.map((a, i) => (
                   <Badge key={i} variant="outline">
                     {a.name}
+                    {a.comisionActual && (
+                      <span className="ml-1 text-muted-foreground">
+                        · Com. {a.comisionActual}
+                      </span>
+                    )}
                   </Badge>
                 ))
               )}

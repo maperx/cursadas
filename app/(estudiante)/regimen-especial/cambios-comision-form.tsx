@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,8 @@ import { toast } from "@/components/ui/use-toast";
 import { updateCambiosComision } from "@/actions/regimen-especial";
 import {
   CAMBIO_ESTADO_LABELS,
+  esCambioComision,
+  soloNumeros,
   type RegimenCambioEstado,
 } from "@/lib/regimen-especial";
 
@@ -27,9 +29,6 @@ interface CambiosComisionFormProps {
   asignaturas: AsignaturaCambio[];
 }
 
-// Solo dígitos.
-const soloNumeros = (value: string) => value.replace(/[^0-9]/g, "");
-
 export function CambiosComisionForm({
   solicitudId,
   asignaturas,
@@ -39,6 +38,15 @@ export function CambiosComisionForm({
   const [rows, setRows] = useState<AsignaturaCambio[]>(asignaturas);
 
   const hayEditables = rows.some((r) => r.estado === "pendiente");
+
+  // Asignaturas cuya comisión actual quedó fijada al enviar la solicitud.
+  const comisionFija = useMemo(
+    () =>
+      new Set(
+        asignaturas.filter((a) => a.comisionActual).map((a) => a.asignaturaId)
+      ),
+    [asignaturas]
+  );
 
   const setValue = (
     asignaturaId: string,
@@ -91,15 +99,18 @@ export function CambiosComisionForm({
       <div>
         <h2 className="text-lg font-semibold">Cambio de comisión</h2>
         <p className="text-sm text-muted-foreground">
-          Indicá, si corresponde, en qué comisión estás inscripto en cada
-          asignatura y a cuál te querés cambiar. Cada cambio lo aprueba un
-          administrador por separado; una vez aprobado no se puede modificar.
+          La comisión actual es la que declaraste al enviar la solicitud.
+          Indicá, si corresponde, a qué comisión te querés cambiar en cada
+          asignatura. Cada cambio lo aprueba un administrador por separado; una
+          vez aprobado no se puede modificar.
         </p>
       </div>
 
       <div className="space-y-4">
         {rows.map((row) => {
           const bloqueada = row.estado === "aprobado";
+          // Sin comisión deseada no hay nada que aprobar: no se muestra estado.
+          const pidioCambio = esCambioComision(row);
           return (
             <div
               key={row.asignaturaId}
@@ -107,10 +118,12 @@ export function CambiosComisionForm({
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-medium">{row.nombre}</p>
-                <Badge variant={bloqueada ? "success" : "warning"}>
-                  {bloqueada && <Lock className="mr-1 h-3 w-3" />}
-                  {CAMBIO_ESTADO_LABELS[row.estado]}
-                </Badge>
+                {(bloqueada || pidioCambio) && (
+                  <Badge variant={bloqueada ? "success" : "warning"}>
+                    {bloqueada && <Lock className="mr-1 h-3 w-3" />}
+                    {CAMBIO_ESTADO_LABELS[row.estado]}
+                  </Badge>
+                )}
               </div>
 
               <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr]">
@@ -118,20 +131,28 @@ export function CambiosComisionForm({
                   <p className="text-xs text-muted-foreground">
                     Comisión actual
                   </p>
-                  <Input
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={row.comisionActual ?? ""}
-                    onChange={(e) =>
-                      setValue(
-                        row.asignaturaId,
-                        "comisionActual",
-                        e.target.value
-                      )
-                    }
-                    placeholder="Ej: 1"
-                    disabled={bloqueada || isLoading}
-                  />
+                  {/* Viene de la solicitud y no se edita. Las solicitudes
+                      anteriores a ese campo la tienen vacía: ahí sí se carga. */}
+                  {comisionFija.has(row.asignaturaId) ? (
+                    <div className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm">
+                      {row.comisionActual}
+                    </div>
+                  ) : (
+                    <Input
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={row.comisionActual ?? ""}
+                      onChange={(e) =>
+                        setValue(
+                          row.asignaturaId,
+                          "comisionActual",
+                          e.target.value
+                        )
+                      }
+                      placeholder="Ej: 1"
+                      disabled={bloqueada || isLoading}
+                    />
+                  )}
                 </div>
 
                 <div className="hidden items-end justify-center pb-2 text-muted-foreground sm:flex">

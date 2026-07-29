@@ -22,6 +22,7 @@ import {
   REGIMEN_DOC_TIPOS,
   REGIMEN_MOTIVOS,
   REGIMEN_SEDES,
+  esCambioComision,
   motivoIncluyeLaboral,
   motivoIncluyePersonas,
   type RegimenDocTipo,
@@ -44,8 +45,19 @@ const solicitudSchema = z.object({
   sede: z.enum(REGIMEN_SEDES),
   carreraId: z.string().uuid("Carrera inválida"),
   observaciones: z.string().optional().nullable(),
-  asignaturaIds: z
-    .array(z.string().uuid())
+  // Por cada asignatura marcada, la comisión en la que está inscripto.
+  asignaturas: z
+    .array(
+      z.object({
+        asignaturaId: z.string().uuid(),
+        comision: z
+          .string()
+          .trim()
+          .min(1, "Indique la comisión de cada asignatura")
+          .max(20)
+          .regex(/^\d+$/, "Las comisiones solo pueden contener números"),
+      })
+    )
     .min(1, "Seleccione al menos una asignatura"),
   documentos: z.array(documentoInputSchema).default([]),
 });
@@ -79,7 +91,7 @@ export async function getSolicitudesRegimen() {
 export async function createSolicitudRegimen(formData: FormData) {
   const session = await requireAuth();
 
-  const asignaturaIdsRaw = formData.get("asignaturaIds") as string | null;
+  const asignaturasRaw = formData.get("asignaturas") as string | null;
   const documentosRaw = formData.get("documentos") as string | null;
 
   const data = {
@@ -91,13 +103,18 @@ export async function createSolicitudRegimen(formData: FormData) {
     sede: formData.get("sede") as string,
     carreraId: formData.get("carreraId") as string,
     observaciones: (formData.get("observaciones") as string)?.trim() || null,
-    asignaturaIds: asignaturaIdsRaw ? JSON.parse(asignaturaIdsRaw) : [],
+    asignaturas: asignaturasRaw ? JSON.parse(asignaturasRaw) : [],
     documentos: documentosRaw ? JSON.parse(documentosRaw) : [],
   };
 
   const validated = solicitudSchema.safeParse(data);
   if (!validated.success) {
     return { error: validated.error.flatten().fieldErrors };
+  }
+
+  const asignaturaIds = validated.data.asignaturas.map((a) => a.asignaturaId);
+  if (new Set(asignaturaIds).size !== asignaturaIds.length) {
+    return { error: { asignaturas: ["Hay asignaturas repetidas"] } };
   }
 
   // Validación de documentación obligatoria según el motivo.
@@ -163,11 +180,12 @@ export async function createSolicitudRegimen(formData: FormData) {
       })
       .returning();
 
-    if (validated.data.asignaturaIds.length > 0) {
+    if (validated.data.asignaturas.length > 0) {
       await tx.insert(regimenAsignaturas).values(
-        validated.data.asignaturaIds.map((asignaturaId) => ({
+        validated.data.asignaturas.map((a) => ({
           solicitudId: solicitud.id,
-          asignaturaId,
+          asignaturaId: a.asignaturaId,
+          comisionActual: a.comision,
         }))
       );
     }
@@ -306,7 +324,11 @@ export async function updateCambiosComision(input: {
     where: eq(regimenSolicitudes.id, validated.data.solicitudId),
     with: {
       asignaturas: {
-        columns: { asignaturaId: true, comisionEstado: true },
+        columns: {
+          asignaturaId: true,
+          comisionActual: true,
+          comisionEstado: true,
+        },
       },
     },
   });
@@ -320,18 +342,23 @@ export async function updateCambiosComision(input: {
 
   // Estado actual por asignatura: se ignoran las que no pertenecen a la
   // solicitud y las que ya están aprobadas (bloqueadas).
-  const estadoByAsignatura = new Map(
-    solicitud.asignaturas.map((a) => [a.asignaturaId, a.comisionEstado])
+  const filaByAsignatura = new Map(
+    solicitud.asignaturas.map((a) => [a.asignaturaId, a])
   );
 
   await db.transaction(async (tx) => {
     for (const c of validated.data.cambios) {
-      const estado = estadoByAsignatura.get(c.asignaturaId);
-      if (estado === undefined || estado === "aprobado") continue;
+      const fila = filaByAsignatura.get(c.asignaturaId);
+      if (fila === undefined || fila.comisionEstado === "aprobado") continue;
+      // La comisión actual la declaró el estudiante al enviar la solicitud y
+      // no se reescribe. Solo se acepta acá si viene vacía (solicitudes
+      // anteriores a que el campo fuera parte del formulario inicial).
+      const comisionActual =
+        fila.comisionActual ?? normComision(c.comisionActual);
       await tx
         .update(regimenAsignaturas)
         .set({
-          comisionActual: normComision(c.comisionActual),
+          comisionActual,
           comisionDeseada: normComision(c.comisionDeseada),
         })
         .where(
@@ -437,13 +464,9 @@ export type ReporteCambiosComision = {
 };
 
 // Un "cambio de comisión" es una asignatura de una solicitud aprobada donde el
-// estudiante declaró comisión actual y/o deseada (mismo criterio que usa la
-// pantalla de revisión). Un estudiante "migra" si tiene al menos un cambio.
-const esCambioComision = (a: {
-  comisionActual: string | null;
-  comisionDeseada: string | null;
-}) => Boolean(a.comisionActual || a.comisionDeseada);
-
+// estudiante pidió una comisión distinta de la que declaró al inscribirse
+// (mismo criterio que usa la pantalla de revisión, ver esCambioComision). Un
+// estudiante "migra" si tiene al menos un cambio.
 export async function getReporteCambiosComision(): Promise<ReporteCambiosComision> {
   await requireAdmin();
 

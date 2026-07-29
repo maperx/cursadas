@@ -26,7 +26,10 @@ type SolicitudEstado = {
   observacionesRevision: string | null;
   createdAt: Date;
   reviewedAt: Date | null;
-  asignaturas: { asignatura: { name: string } }[];
+  asignaturas: {
+    comisionActual: string | null;
+    asignatura: { name: string };
+  }[];
   documentos: { id: string; tipo: RegimenDocTipo; originalName: string }[];
 };
 
@@ -105,6 +108,11 @@ export function RegimenEstado({ solicitud }: { solicitud: SolicitudEstado }) {
             solicitud.asignaturas.map((a, i) => (
               <Badge key={i} variant="outline">
                 {a.asignatura.name}
+                {a.comisionActual && (
+                  <span className="ml-1 text-muted-foreground">
+                    · Com. {a.comisionActual}
+                  </span>
+                )}
               </Badge>
             ))
           )}
