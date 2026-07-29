@@ -10,6 +10,7 @@ import {
 } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { requirePermission } from "@/lib/auth-server";
 
 const sedeSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
@@ -76,6 +77,8 @@ export async function getSede(id: string) {
 }
 
 export async function createSede(formData: FormData) {
+  await requirePermission("sedes", "edit");
+
   const validated = sedeSchema.safeParse(parseSedeForm(formData));
   if (!validated.success) {
     return { error: validated.error.flatten().fieldErrors };
@@ -106,6 +109,8 @@ export async function createSede(formData: FormData) {
 }
 
 export async function updateSede(id: string, formData: FormData) {
+  await requirePermission("sedes", "edit");
+
   const validated = sedeSchema.safeParse(parseSedeForm(formData));
   if (!validated.success) {
     return { error: validated.error.flatten().fieldErrors };
@@ -138,6 +143,8 @@ export async function updateSede(id: string, formData: FormData) {
 }
 
 export async function deleteSede(id: string) {
+  await requirePermission("sedes", "delete");
+
   // Las aulas referencian la sede con onDelete: restrict, así que se avisa
   // antes de intentar borrarla.
   const aulasEnSede = await db.query.aulas.findMany({

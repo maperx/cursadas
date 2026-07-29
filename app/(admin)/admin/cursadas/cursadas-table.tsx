@@ -72,7 +72,11 @@ interface CursadasTableProps {
   carreras: CarreraOption[];
   asignaturas: Asignatura[];
   docentes: Docente[];
-  aulas: Aula[];
+  /** Permisos de cursadas, por sede (la sede de una cursada es la de su aula). */
+  canEdit: (sedeId: string) => boolean;
+  canDelete: (sedeId: string) => boolean;
+  /** Aulas de las sedes donde el usuario puede editar (para el diálogo). */
+  aulasEditables: Aula[];
 }
 
 function toInputValue(date: Date): string {
@@ -102,7 +106,9 @@ export function CursadasTable({
   carreras,
   asignaturas,
   docentes,
-  aulas,
+  aulasEditables,
+  canEdit,
+  canDelete,
 }: CursadasTableProps) {
   const selectedDateStr = toInputValue(selectedDate);
   const dayOfWeek = selectedDate.getDay();
@@ -241,31 +247,35 @@ export function CursadasTable({
       id: "actions",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <CursadaDialog
-            cursada={{
-              ...row.original,
-              docenteIds: row.original.cursadaDocentes.map(
-                (cd) => cd.user.id
-              ),
-            }}
-            carreras={carreras}
-            asignaturas={asignaturas}
-            docentes={docentes}
-            aulas={aulas}
-          >
-            <Button variant="ghost" size="icon">
-              <Pencil className="h-4 w-4" />
-            </Button>
-          </CursadaDialog>
-          <DeleteDialog
-            title="Eliminar Cursada"
-            description={`¿Estás seguro de que deseas eliminar esta cursada de "${row.original.asignatura.name}"? Esta acción no se puede deshacer.`}
-            onConfirm={() => deleteCursada(row.original.id)}
-          >
-            <Button variant="ghost" size="icon">
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-          </DeleteDialog>
+          {canEdit(row.original.aula.sedeId) && (
+            <CursadaDialog
+              cursada={{
+                ...row.original,
+                docenteIds: row.original.cursadaDocentes.map(
+                  (cd) => cd.user.id
+                ),
+              }}
+              carreras={carreras}
+              asignaturas={asignaturas}
+              docentes={docentes}
+              aulas={aulasEditables}
+            >
+              <Button variant="ghost" size="icon">
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </CursadaDialog>
+          )}
+          {canDelete(row.original.aula.sedeId) && (
+            <DeleteDialog
+              title="Eliminar Cursada"
+              description={`¿Estás seguro de que deseas eliminar esta cursada de "${row.original.asignatura.name}"? Esta acción no se puede deshacer.`}
+              onConfirm={() => deleteCursada(row.original.id)}
+            >
+              <Button variant="ghost" size="icon">
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </DeleteDialog>
+          )}
         </div>
       ),
     },

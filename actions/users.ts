@@ -4,8 +4,11 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { user } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { requirePermission } from "@/lib/auth-server";
 
 export async function getUsers() {
+  await requirePermission("usuarios", "view");
+
   return await db.query.user.findMany({
     orderBy: (user, { asc }) => [asc(user.name)],
   });
@@ -47,6 +50,8 @@ export async function setDocenteRole(email: string, code: string) {
 }
 
 export async function updateUserRole(userId: string, role: string) {
+  await requirePermission("usuarios", "edit");
+
   await db
     .update(user)
     .set({ role, updatedAt: new Date() })

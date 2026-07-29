@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getDayFullName, formatTime, addMinutesToTime } from "@/lib/utils";
-import { CursadaDialog } from "./cursada-dialog";
+import { CursadaEditWrapper } from "./cursada-edit-wrapper";
 import { SuspensionDialog } from "./suspension-dialog";
 import { ChevronLeft, ChevronRight, Pencil, Trash2, Ban } from "lucide-react";
 import { DeleteDialog } from "@/components/admin/delete-dialog";
@@ -73,6 +73,11 @@ interface CursadasAulasProps {
   asignaturas: Asignatura[];
   docentes: Docente[];
   aulas: Aula[];
+  /** Permisos de cursadas, por sede (la sede de una cursada es la de su aula). */
+  canEdit: (sedeId: string) => boolean;
+  canDelete: (sedeId: string) => boolean;
+  /** Aulas de las sedes donde el usuario puede editar (para el diálogo). */
+  aulasEditables: Aula[];
 }
 
 const PIXELS_PER_MINUTE = 1.5;
@@ -152,6 +157,9 @@ export function CursadasAulas({
   asignaturas,
   docentes,
   aulas,
+  aulasEditables,
+  canEdit,
+  canDelete,
 }: CursadasAulasProps) {
   const dayOfWeek = selectedDate.getDay();
   const selectedDateStr = toInputValue(selectedDate);
@@ -329,8 +337,9 @@ export function CursadasAulas({
                   const isSuspended = !!suspension;
 
                   return (
-                    <CursadaDialog
+                    <CursadaEditWrapper
                       key={cursada.id}
+                      canEdit={canEdit(cursada.aula.sedeId)}
                       cursada={{
                         ...cursada,
                         docenteIds: cursada.cursadaDocentes.map(
@@ -340,10 +349,10 @@ export function CursadasAulas({
                       carreras={carreras}
                       asignaturas={asignaturas}
                       docentes={docentes}
-                      aulas={aulas}
+                      aulas={aulasEditables}
                     >
                       <div
-                        className={`absolute right-1 left-1 overflow-hidden rounded-md border p-1.5 text-xs cursor-pointer hover:brightness-95 transition-[filter] ${isSuspended ? "opacity-60" : ""}`}
+                        className={`absolute right-1 left-1 overflow-hidden rounded-md border p-1.5 text-xs ${canEdit(cursada.aula.sedeId) ? "cursor-pointer hover:brightness-95" : ""} transition-[filter] ${isSuspended ? "opacity-60" : ""}`}
                         style={{
                           top,
                           height,
@@ -396,32 +405,38 @@ export function CursadasAulas({
                           {cursada.carrera.name}
                         </Badge>
                         <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
-                          <Pencil className="h-3 w-3 text-muted-foreground" />
-                          <SuspensionDialog
-                            cursadaId={cursada.id}
-                            date={selectedDateStr}
-                            asignaturaName={cursada.asignatura.name}
-                            suspension={suspension ?? null}
-                          >
-                            <button
-                              onClick={(e) => e.stopPropagation()}
-                              title={isSuspended ? "Editar suspensión" : "Suspender este día"}
+                          {canEdit(cursada.aula.sedeId) && (
+                            <>
+                              <Pencil className="h-3 w-3 text-muted-foreground" />
+                              <SuspensionDialog
+                                cursadaId={cursada.id}
+                                date={selectedDateStr}
+                                asignaturaName={cursada.asignatura.name}
+                                suspension={suspension ?? null}
+                              >
+                                <button
+                                  onClick={(e) => e.stopPropagation()}
+                                  title={isSuspended ? "Editar suspensión" : "Suspender este día"}
+                                >
+                                  <Ban className={`h-3 w-3 ${isSuspended ? "text-destructive" : "text-muted-foreground"}`} />
+                                </button>
+                              </SuspensionDialog>
+                            </>
+                          )}
+                          {canDelete(cursada.aula.sedeId) && (
+                            <DeleteDialog
+                              title="Eliminar Cursada"
+                              description={`¿Estás seguro de que deseas eliminar esta cursada de "${cursada.asignatura.name}"? Esta acción no se puede deshacer.`}
+                              onConfirm={() => deleteCursada(cursada.id)}
                             >
-                              <Ban className={`h-3 w-3 ${isSuspended ? "text-destructive" : "text-muted-foreground"}`} />
-                            </button>
-                          </SuspensionDialog>
-                          <DeleteDialog
-                            title="Eliminar Cursada"
-                            description={`¿Estás seguro de que deseas eliminar esta cursada de "${cursada.asignatura.name}"? Esta acción no se puede deshacer.`}
-                            onConfirm={() => deleteCursada(cursada.id)}
-                          >
-                            <button onClick={(e) => e.stopPropagation()}>
-                              <Trash2 className="h-3 w-3 text-destructive" />
-                            </button>
-                          </DeleteDialog>
+                              <button onClick={(e) => e.stopPropagation()}>
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </button>
+                            </DeleteDialog>
+                          )}
                         </div>
                       </div>
-                    </CursadaDialog>
+                    </CursadaEditWrapper>
                   );
                 })}
               </div>

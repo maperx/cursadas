@@ -4,8 +4,14 @@ import { CarrerasTable } from "./carreras-table";
 import { CarreraDialog } from "./carrera-dialog";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { getPermissions } from "@/lib/auth-server";
+import { can } from "@/lib/permissions";
 
 export default async function CarrerasPage() {
+  const perms = await getPermissions();
+  const canEdit = can(perms, "carreras", "edit");
+  const canDelete = can(perms, "carreras", "delete");
+
   const [carreras, sedesRaw] = await Promise.all([getCarreras(), getSedes()]);
 
   const sedes = sedesRaw.map((s) => ({ id: s.id, name: s.name }));
@@ -19,15 +25,22 @@ export default async function CarrerasPage() {
             Gestiona las carreras de la facultad y las sedes donde se dictan
           </p>
         </div>
-        <CarreraDialog sedes={sedes}>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva Carrera
-          </Button>
-        </CarreraDialog>
+        {canEdit && (
+          <CarreraDialog sedes={sedes}>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva Carrera
+            </Button>
+          </CarreraDialog>
+        )}
       </div>
 
-      <CarrerasTable data={carreras} sedes={sedes} />
+      <CarrerasTable
+        data={carreras}
+        sedes={sedes}
+        canEdit={canEdit}
+        canDelete={canDelete}
+      />
     </div>
   );
 }

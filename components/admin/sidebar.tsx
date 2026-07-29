@@ -4,13 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Home } from "lucide-react";
-import { useSession } from "@/lib/auth-client";
-import { getNavItemsForRole } from "./nav-items";
+import { getNavItems } from "./nav-items";
+import type { PermissionSet } from "@/lib/permissions";
 
-export function AdminSidebar() {
+export function AdminSidebar({ perms }: { perms: PermissionSet }) {
   const pathname = usePathname();
-  const { data: session } = useSession();
-  const items = getNavItemsForRole(session?.user?.role);
+  const items = getNavItems(perms);
 
   return (
     <aside className="hidden md:flex w-64 flex-col border-r bg-card">

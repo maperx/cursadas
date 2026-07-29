@@ -4,8 +4,11 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { inscripciones } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
+import { requirePermission } from "@/lib/auth-server";
 
 export async function getInscripciones() {
+  await requirePermission("inscripciones", "view");
+
   return await db.query.inscripciones.findMany({
     with: {
       user: true,
@@ -88,6 +91,8 @@ export async function darDeBajaInscripcion(inscripcionId: string) {
 }
 
 export async function deleteInscripcion(id: string) {
+  await requirePermission("inscripciones", "delete");
+
   await db.delete(inscripciones).where(eq(inscripciones.id, id));
 
   revalidatePath("/mis-cursadas");

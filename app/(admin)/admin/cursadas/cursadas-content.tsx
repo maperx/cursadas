@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { CursadasHeader } from "./cursadas-header";
 import { CursadasTable } from "./cursadas-table";
 import { CursadasWeekly } from "./cursadas-weekly";
@@ -76,6 +76,10 @@ interface CursadasContentProps {
   asignaturas: Asignatura[];
   docentes: Docente[];
   aulas: Aula[];
+  /** Sedes donde el usuario puede editar cursadas. */
+  sedesEdit: string[];
+  /** Sedes donde el usuario puede borrar cursadas. */
+  sedesDelete: string[];
 }
 
 export function CursadasContent({
@@ -84,6 +88,8 @@ export function CursadasContent({
   asignaturas,
   docentes,
   aulas,
+  sedesEdit,
+  sedesDelete,
 }: CursadasContentProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -91,6 +97,23 @@ export function CursadasContent({
   const [filterCarrera, setFilterCarrera] = useState<string>("all");
   const [filterAula, setFilterAula] = useState<string>("all");
   const [filterExamen, setFilterExamen] = useState<string>("all");
+
+  const editables = useMemo(() => new Set(sedesEdit), [sedesEdit]);
+  const borrables = useMemo(() => new Set(sedesDelete), [sedesDelete]);
+  const canEdit = useCallback(
+    (sedeId: string) => editables.has(sedeId),
+    [editables]
+  );
+  const canDelete = useCallback(
+    (sedeId: string) => borrables.has(sedeId),
+    [borrables]
+  );
+
+  // El diálogo de alta/edición solo puede ofrecer aulas de sedes editables.
+  const aulasEditables = useMemo(
+    () => aulas.filter((aula) => editables.has(aula.sedeId)),
+    [aulas, editables]
+  );
 
   const sedes = useMemo(() => {
     const map = new Map<string, { id: string; name: string }>();
@@ -135,7 +158,7 @@ export function CursadasContent({
         carreras={carreras}
         asignaturas={asignaturas}
         docentes={docentes}
-        aulas={aulas}
+        aulasEditables={aulasEditables}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
       />
@@ -207,7 +230,9 @@ export function CursadasContent({
           carreras={carreras}
           asignaturas={asignaturas}
           docentes={docentes}
-          aulas={aulas}
+          aulasEditables={aulasEditables}
+          canEdit={canEdit}
+          canDelete={canDelete}
         />
       )}
       {viewMode === "weekly" && (
@@ -218,7 +243,9 @@ export function CursadasContent({
           carreras={carreras}
           asignaturas={asignaturas}
           docentes={docentes}
-          aulas={aulas}
+          aulasEditables={aulasEditables}
+          canEdit={canEdit}
+          canDelete={canDelete}
         />
       )}
       {viewMode === "daily" && (
@@ -229,7 +256,9 @@ export function CursadasContent({
           carreras={carreras}
           asignaturas={asignaturas}
           docentes={docentes}
-          aulas={aulas}
+          aulasEditables={aulasEditables}
+          canEdit={canEdit}
+          canDelete={canDelete}
         />
       )}
       {viewMode === "aulas" && (
@@ -241,6 +270,9 @@ export function CursadasContent({
           asignaturas={asignaturas}
           docentes={docentes}
           aulas={aulas}
+          aulasEditables={aulasEditables}
+          canEdit={canEdit}
+          canDelete={canDelete}
         />
       )}
     </div>

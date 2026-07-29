@@ -9,6 +9,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
+import { requirePermission } from "@/lib/auth-server";
 
 const recesoSchema = z
   .object({
@@ -69,6 +70,8 @@ export async function getAsignaturasByCarrera(carreraId: string) {
 }
 
 export async function createAsignatura(formData: FormData) {
+  await requirePermission("asignaturas", "edit");
+
   const docenteIdsRaw = formData.get("docenteIds") as string;
   const recesosRaw = formData.get("recesos") as string;
   const data = {
@@ -122,6 +125,8 @@ export async function createAsignatura(formData: FormData) {
 }
 
 export async function updateAsignatura(id: string, formData: FormData) {
+  await requirePermission("asignaturas", "edit");
+
   const docenteIdsRaw = formData.get("docenteIds") as string;
   const recesosRaw = formData.get("recesos") as string;
   const data = {
@@ -192,6 +197,8 @@ export async function applyBulkReceso(input: {
   asignaturaIds: string[];
   receso: { startDate: string; endDate: string; notes: string | null };
 }) {
+  await requirePermission("asignaturas", "edit");
+
   const validated = bulkRecesoSchema.safeParse(input);
   if (!validated.success) {
     return { error: validated.error.flatten() };
@@ -239,6 +246,7 @@ export async function applyBulkReceso(input: {
 }
 
 export async function deleteAsignatura(id: string) {
+  await requirePermission("asignaturas", "delete");
   await db.delete(asignaturas).where(eq(asignaturas.id, id));
   revalidatePath("/admin/asignaturas");
   revalidatePath("/admin/cursadas");

@@ -1,87 +1,66 @@
 import {
   BookOpen,
   Building2,
+  ClipboardCheck,
+  ClipboardList,
+  DoorOpen,
   GraduationCap,
   LayoutDashboard,
   MapPin,
   Newspaper,
   UserCog,
-  ClipboardList,
-  ClipboardCheck,
-  DoorOpen,
   type LucideIcon,
 } from "lucide-react";
+import {
+  RESOURCES,
+  can,
+  type PermissionSet,
+  type ResourceKey,
+} from "@/lib/permissions";
 
 export type NavItem = {
   title: string;
   href: string;
   icon: LucideIcon;
-  roles?: string[];
+  /** Color del ícono en las tarjetas del panel principal. */
+  color: string;
 };
 
-export const navItems: NavItem[] = [
-  {
-    title: "Dashboard",
-    href: "/admin",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Sedes",
-    href: "/admin/sedes",
-    icon: MapPin,
-    roles: ["admin"],
-  },
-  {
-    title: "Carreras",
-    href: "/admin/carreras",
-    icon: GraduationCap,
-    roles: ["admin"],
-  },
-  {
-    title: "Asignaturas",
-    href: "/admin/asignaturas",
-    icon: BookOpen,
-    roles: ["admin"],
-  },
-  {
-    title: "Aulas",
-    href: "/admin/aulas",
-    icon: DoorOpen,
-    roles: ["admin"],
-  },
-  {
-    title: "Cursadas",
-    href: "/admin/cursadas",
-    icon: Building2,
-    roles: ["admin"],
-  },
-  {
-    title: "Inscripciones",
-    href: "/admin/inscripciones",
-    icon: ClipboardList,
-    roles: ["admin"],
-  },
-  {
-    title: "Régimen especial",
-    href: "/admin/regimen-especial",
-    icon: ClipboardCheck,
-    roles: ["admin"],
-  },
-  {
-    title: "Noticias",
-    href: "/admin/noticias",
-    icon: Newspaper,
-  },
-  {
-    title: "Usuarios",
-    href: "/admin/usuarios",
-    icon: UserCog,
-    roles: ["admin"],
-  },
-];
+const RESOURCE_UI: Record<ResourceKey, { icon: LucideIcon; color: string }> = {
+  sedes: { icon: MapPin, color: "text-orange-500" },
+  carreras: { icon: GraduationCap, color: "text-blue-500" },
+  asignaturas: { icon: BookOpen, color: "text-green-500" },
+  aulas: { icon: DoorOpen, color: "text-cyan-500" },
+  cursadas: { icon: Building2, color: "text-red-500" },
+  inscripciones: { icon: ClipboardList, color: "text-yellow-500" },
+  regimen: { icon: ClipboardCheck, color: "text-pink-500" },
+  noticias: { icon: Newspaper, color: "text-purple-500" },
+  usuarios: { icon: UserCog, color: "text-slate-500" },
+};
 
-export function getNavItemsForRole(role: string | null | undefined): NavItem[] {
-  return navItems.filter(
-    (item) => !item.roles || item.roles.includes(role ?? "")
+export const DASHBOARD_ITEM: NavItem = {
+  title: "Panel principal",
+  href: "/admin",
+  icon: LayoutDashboard,
+  color: "text-muted-foreground",
+};
+
+/** Secciones que el usuario puede ver, según sus permisos. */
+export function getSectionItems(
+  perms: PermissionSet | null | undefined
+): NavItem[] {
+  return RESOURCES.filter((resource) => can(perms, resource.key, "view")).map(
+    (resource) => ({
+      title: resource.label,
+      href: resource.href,
+      ...RESOURCE_UI[resource.key],
+    })
   );
+}
+
+/** Ítems del menú lateral: panel principal + secciones habilitadas. */
+export function getNavItems(
+  perms: PermissionSet | null | undefined
+): NavItem[] {
+  return [DASHBOARD_ITEM, ...getSectionItems(perms)];
 }

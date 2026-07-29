@@ -1,7 +1,10 @@
 import { getInscripciones } from "@/actions/inscripciones";
 import { InscripcionesTable } from "./inscripciones-table";
+import { getPermissions } from "@/lib/auth-server";
+import { can } from "@/lib/permissions";
 
 export default async function InscripcionesPage() {
+  const perms = await getPermissions();
   const inscripciones = await getInscripciones();
 
   return (
@@ -13,7 +16,10 @@ export default async function InscripcionesPage() {
         </p>
       </div>
 
-      <InscripcionesTable data={inscripciones} />
+      <InscripcionesTable
+        data={inscripciones}
+        canDelete={can(perms, "inscripciones", "delete")}
+      />
     </div>
   );
 }

@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
-import { requireNoticiasOrAdmin } from "@/lib/auth-server";
+import { requirePermission } from "@/lib/auth-server";
 
 const UPLOAD_DIR = path.join(process.cwd(), "public/uploads/noticias");
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
 export async function POST(request: NextRequest) {
-  await requireNoticiasOrAdmin();
+  await requirePermission("noticias", "edit");
   const formData = await request.formData();
   const file = formData.get("file") as File | null;
 

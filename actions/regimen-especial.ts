@@ -10,7 +10,7 @@ import {
   regimenSolicitudes,
   user,
 } from "@/lib/db/schema";
-import { requireAdmin, requireAuth } from "@/lib/auth-server";
+import { requireAuth, requirePermission } from "@/lib/auth-server";
 import { sendEmail } from "@/lib/email";
 import {
   DOC_GENERALES,
@@ -76,7 +76,7 @@ export async function getMiSolicitudRegimen() {
 }
 
 export async function getSolicitudesRegimen() {
-  await requireAdmin();
+  await requirePermission("regimen", "view");
   return await db.query.regimenSolicitudes.findMany({
     orderBy: (s, { desc }) => [desc(s.createdAt)],
     with: {
@@ -215,7 +215,7 @@ export async function updateEstadoSolicitud(
   estado: "aprobada" | "rechazada",
   observacionesRevision?: string
 ) {
-  const session = await requireAdmin();
+  const { session } = await requirePermission("regimen", "resolverSolicitudes");
 
   if (estado !== "aprobada" && estado !== "rechazada") {
     return { error: "Estado inválido" };
@@ -267,7 +267,7 @@ export async function updateEstadoSolicitud(
 }
 
 export async function deleteSolicitudRegimen(id: string) {
-  await requireAdmin();
+  await requirePermission("regimen", "delete");
   await db.delete(regimenSolicitudes).where(eq(regimenSolicitudes.id, id));
   revalidatePath("/regimen-especial");
   revalidatePath("/admin/regimen-especial");
@@ -380,7 +380,7 @@ export async function updateCambiosComision(input: {
 export async function aprobarCambioComisionAsignatura(
   regimenAsignaturaId: string
 ) {
-  const session = await requireAdmin();
+  const { session } = await requirePermission("regimen", "resolverCambios");
 
   const [updated] = await db
     .update(regimenAsignaturas)
@@ -405,7 +405,7 @@ export async function aprobarCambioComisionAsignatura(
 export async function reabrirCambioComisionAsignatura(
   regimenAsignaturaId: string
 ) {
-  await requireAdmin();
+  await requirePermission("regimen", "resolverCambios");
 
   const [updated] = await db
     .update(regimenAsignaturas)
@@ -469,7 +469,7 @@ export type ReporteCambiosComision = {
 // (mismo criterio que usa la pantalla de revisión, ver esCambioComision). Un
 // estudiante "migra" si tiene al menos un cambio.
 export async function getReporteCambiosComision(): Promise<ReporteCambiosComision> {
-  await requireAdmin();
+  await requirePermission("regimen", "view");
 
   const solicitudes = await db.query.regimenSolicitudes.findMany({
     where: eq(regimenSolicitudes.estado, "aprobada"),

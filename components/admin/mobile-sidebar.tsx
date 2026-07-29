@@ -10,18 +10,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Home } from "lucide-react";
-import { useSession } from "@/lib/auth-client";
-import { getNavItemsForRole } from "./nav-items";
+import { getNavItems } from "./nav-items";
+import type { PermissionSet } from "@/lib/permissions";
 
 interface MobileSidebarProps {
+  perms: PermissionSet;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function MobileSidebar({ open, onOpenChange }: MobileSidebarProps) {
+export function MobileSidebar({
+  perms,
+  open,
+  onOpenChange,
+}: MobileSidebarProps) {
   const pathname = usePathname();
-  const { data: session } = useSession();
-  const items = getNavItemsForRole(session?.user?.role);
+  const items = getNavItems(perms);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

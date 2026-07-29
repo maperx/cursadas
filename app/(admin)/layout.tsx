@@ -1,25 +1,14 @@
-"use client";
+import { getPermissions } from "@/lib/auth-server";
+import { AdminShell } from "@/components/admin/admin-shell";
 
-import { useState } from "react";
-import { AdminSidebar } from "@/components/admin/sidebar";
-import { AdminHeader } from "@/components/admin/header";
-import { MobileSidebar } from "@/components/admin/mobile-sidebar";
-
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
+  // El menú se arma con los permisos del usuario: solo muestra las secciones
+  // que puede ver.
+  const perms = await getPermissions();
 
-  return (
-    <div className="flex min-h-screen">
-      <AdminSidebar />
-      <MobileSidebar open={mobileOpen} onOpenChange={setMobileOpen} />
-      <div className="flex flex-1 flex-col">
-        <AdminHeader onMenuClick={() => setMobileOpen(true)} />
-        <main className="flex-1 p-4 lg:p-6">{children}</main>
-      </div>
-    </div>
-  );
+  return <AdminShell perms={perms}>{children}</AdminShell>;
 }

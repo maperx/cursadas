@@ -7,7 +7,7 @@ import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
 import { unlink } from "fs/promises";
 import path from "path";
-import { requireNoticiasOrAdmin } from "@/lib/auth-server";
+import { requirePermission } from "@/lib/auth-server";
 
 function imageUrlToFilePath(imageUrl: string): string {
   // /api/uploads/noticias/filename.jpg -> public/uploads/noticias/filename.jpg
@@ -25,6 +25,8 @@ const noticiaSchema = z.object({
 });
 
 export async function getNoticias() {
+  await requirePermission("noticias", "view");
+
   return await db.query.noticias.findMany({
     orderBy: [desc(noticias.publishedAt)],
   });
@@ -44,7 +46,7 @@ export async function getNoticia(id: string) {
 }
 
 export async function createNoticia(formData: FormData) {
-  await requireNoticiasOrAdmin();
+  await requirePermission("noticias", "edit");
 
   const data = {
     title: formData.get("title") as string,
@@ -75,7 +77,7 @@ export async function createNoticia(formData: FormData) {
 }
 
 export async function updateNoticia(id: string, formData: FormData) {
-  await requireNoticiasOrAdmin();
+  await requirePermission("noticias", "edit");
 
   const data = {
     title: formData.get("title") as string,
@@ -120,7 +122,7 @@ export async function updateNoticia(id: string, formData: FormData) {
 }
 
 export async function deleteNoticia(id: string) {
-  await requireNoticiasOrAdmin();
+  await requirePermission("noticias", "delete");
 
   const existing = await getNoticia(id);
   if (existing?.imageUrl) {

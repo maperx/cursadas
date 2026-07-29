@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { carreras, carreraSedes } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { requirePermission } from "@/lib/auth-server";
 
 const carreraSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
@@ -59,6 +60,8 @@ export async function getCarrera(id: string) {
 }
 
 export async function createCarrera(formData: FormData) {
+  await requirePermission("carreras", "edit");
+
   const validated = carreraSchema.safeParse(parseCarreraForm(formData));
   if (!validated.success) {
     return { error: validated.error.flatten().fieldErrors };
@@ -87,6 +90,8 @@ export async function createCarrera(formData: FormData) {
 }
 
 export async function updateCarrera(id: string, formData: FormData) {
+  await requirePermission("carreras", "edit");
+
   const validated = carreraSchema.safeParse(parseCarreraForm(formData));
   if (!validated.success) {
     return { error: validated.error.flatten().fieldErrors };
@@ -117,6 +122,7 @@ export async function updateCarrera(id: string, formData: FormData) {
 }
 
 export async function deleteCarrera(id: string) {
+  await requirePermission("carreras", "delete");
   await db.delete(carreras).where(eq(carreras.id, id));
   revalidateCarreras();
   return { success: true };

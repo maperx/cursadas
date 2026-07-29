@@ -27,9 +27,16 @@ type Aula = {
 interface AulasTableProps {
   data: Aula[];
   sedes: Sede[];
+  canEdit: boolean;
+  canDelete: boolean;
 }
 
-export function AulasTable({ data, sedes }: AulasTableProps) {
+export function AulasTable({
+  data,
+  sedes,
+  canEdit,
+  canDelete,
+}: AulasTableProps) {
   const buildings = [...new Set(data.map((a) => a.building))].sort();
 
   const columns: ColumnDef<Aula>[] = [
@@ -52,27 +59,35 @@ export function AulasTable({ data, sedes }: AulasTableProps) {
       cell: ({ row }) =>
         row.original.capacity ? `${row.original.capacity} personas` : "-",
     },
-    {
-      id: "actions",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <AulaDialog aula={row.original} sedes={sedes}>
-            <Button variant="ghost" size="icon">
-              <Pencil className="h-4 w-4" />
-            </Button>
-          </AulaDialog>
-          <DeleteDialog
-            title="Eliminar Aula"
-            description={`¿Estás seguro de que deseas eliminar el aula "${row.original.name}"? Esta acción no se puede deshacer.`}
-            onConfirm={() => deleteAula(row.original.id)}
-          >
-            <Button variant="ghost" size="icon">
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-          </DeleteDialog>
-        </div>
-      ),
-    },
+    ...(canEdit || canDelete
+      ? [
+          {
+            id: "actions",
+            cell: ({ row }) => (
+              <div className="flex items-center gap-2">
+                {canEdit && (
+                  <AulaDialog aula={row.original} sedes={sedes}>
+                    <Button variant="ghost" size="icon">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </AulaDialog>
+                )}
+                {canDelete && (
+                  <DeleteDialog
+                    title="Eliminar Aula"
+                    description={`¿Estás seguro de que deseas eliminar el aula "${row.original.name}"? Esta acción no se puede deshacer.`}
+                    onConfirm={() => deleteAula(row.original.id)}
+                  >
+                    <Button variant="ghost" size="icon">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </DeleteDialog>
+                )}
+              </div>
+            ),
+          } satisfies ColumnDef<Aula>,
+        ]
+      : []),
   ];
 
   return (

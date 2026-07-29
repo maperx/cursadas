@@ -28,9 +28,16 @@ type Carrera = {
 interface CarrerasTableProps {
   data: Carrera[];
   sedes: Sede[];
+  canEdit: boolean;
+  canDelete: boolean;
 }
 
-export function CarrerasTable({ data, sedes }: CarrerasTableProps) {
+export function CarrerasTable({
+  data,
+  sedes,
+  canEdit,
+  canDelete,
+}: CarrerasTableProps) {
   const columns: ColumnDef<Carrera>[] = [
     {
       accessorKey: "name",
@@ -76,27 +83,35 @@ export function CarrerasTable({ data, sedes }: CarrerasTableProps) {
           : <EyeOff className="h-4 w-4 text-muted-foreground" />
       ),
     },
-    {
-      id: "actions",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <CarreraDialog carrera={row.original} sedes={sedes}>
-            <Button variant="ghost" size="icon">
-              <Pencil className="h-4 w-4" />
-            </Button>
-          </CarreraDialog>
-          <DeleteDialog
-            title="Eliminar Carrera"
-            description={`¿Estás seguro de que deseas eliminar la carrera "${row.original.name}"? Esta acción no se puede deshacer.`}
-            onConfirm={() => deleteCarrera(row.original.id)}
-          >
-            <Button variant="ghost" size="icon">
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-          </DeleteDialog>
-        </div>
-      ),
-    },
+    ...(canEdit || canDelete
+      ? [
+          {
+            id: "actions",
+            cell: ({ row }) => (
+              <div className="flex items-center gap-2">
+                {canEdit && (
+                  <CarreraDialog carrera={row.original} sedes={sedes}>
+                    <Button variant="ghost" size="icon">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </CarreraDialog>
+                )}
+                {canDelete && (
+                  <DeleteDialog
+                    title="Eliminar Carrera"
+                    description={`¿Estás seguro de que deseas eliminar la carrera "${row.original.name}"? Esta acción no se puede deshacer.`}
+                    onConfirm={() => deleteCarrera(row.original.id)}
+                  >
+                    <Button variant="ghost" size="icon">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </DeleteDialog>
+                )}
+              </div>
+            ),
+          } satisfies ColumnDef<Carrera>,
+        ]
+      : []),
   ];
 
   return (

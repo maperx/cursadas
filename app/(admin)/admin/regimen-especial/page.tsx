@@ -3,8 +3,11 @@ import { BarChart3 } from "lucide-react";
 import { getSolicitudesRegimen } from "@/actions/regimen-especial";
 import { Button } from "@/components/ui/button";
 import { RegimenTable } from "./regimen-table";
+import { getPermissions } from "@/lib/auth-server";
+import { can } from "@/lib/permissions";
 
 export default async function RegimenEspecialAdminPage() {
+  const perms = await getPermissions();
   const solicitudes = await getSolicitudesRegimen();
 
   const data = solicitudes.map((s) => ({
@@ -55,7 +58,12 @@ export default async function RegimenEspecialAdminPage() {
         </Button>
       </div>
 
-      <RegimenTable data={data} />
+      <RegimenTable
+        data={data}
+        canDelete={can(perms, "regimen", "delete")}
+        canResolverSolicitudes={can(perms, "regimen", "resolverSolicitudes")}
+        canResolverCambios={can(perms, "regimen", "resolverCambios")}
+      />
     </div>
   );
 }

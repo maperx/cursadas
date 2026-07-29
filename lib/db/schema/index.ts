@@ -1,5 +1,6 @@
 // Auth tables (managed by better-auth)
 export * from "./auth";
+export * from "./permissions";
 export * from "./user-relations";
 
 // Business tables

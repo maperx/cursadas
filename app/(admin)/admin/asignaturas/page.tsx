@@ -3,8 +3,14 @@ import { getCarreras } from "@/actions/carreras";
 import { getDocentes } from "@/actions/users";
 import { AsignaturasTable } from "./asignaturas-table";
 import { CreateAsignaturaButton } from "./create-asignatura-button";
+import { getPermissions } from "@/lib/auth-server";
+import { can } from "@/lib/permissions";
 
 export default async function AsignaturasPage() {
+  const perms = await getPermissions();
+  const canEdit = can(perms, "asignaturas", "edit");
+  const canDelete = can(perms, "asignaturas", "delete");
+
   const [asignaturas, carreras, docentes] = await Promise.all([
     getAsignaturas(),
     getCarreras(),
@@ -20,10 +26,18 @@ export default async function AsignaturasPage() {
             Gestiona las asignaturas de la facultad
           </p>
         </div>
-        <CreateAsignaturaButton carreras={carreras} docentes={docentes} />
+        {canEdit && (
+          <CreateAsignaturaButton carreras={carreras} docentes={docentes} />
+        )}
       </div>
 
-      <AsignaturasTable data={asignaturas} carreras={carreras} docentes={docentes} />
+      <AsignaturasTable
+        data={asignaturas}
+        carreras={carreras}
+        docentes={docentes}
+        canEdit={canEdit}
+        canDelete={canDelete}
+      />
     </div>
   );
 }

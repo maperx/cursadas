@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { aulas } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { requirePermission } from "@/lib/auth-server";
 
 const aulaSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
@@ -45,6 +46,8 @@ export async function getAula(id: string) {
 }
 
 export async function createAula(formData: FormData) {
+  await requirePermission("aulas", "edit");
+
   const validated = aulaSchema.safeParse(parseAulaForm(formData));
   if (!validated.success) {
     return { error: validated.error.flatten().fieldErrors };
@@ -62,6 +65,8 @@ export async function createAula(formData: FormData) {
 }
 
 export async function updateAula(id: string, formData: FormData) {
+  await requirePermission("aulas", "edit");
+
   const validated = aulaSchema.safeParse(parseAulaForm(formData));
   if (!validated.success) {
     return { error: validated.error.flatten().fieldErrors };
@@ -83,6 +88,7 @@ export async function updateAula(id: string, formData: FormData) {
 }
 
 export async function deleteAula(id: string) {
+  await requirePermission("aulas", "delete");
   await db.delete(aulas).where(eq(aulas.id, id));
   revalidateAulas();
   return { success: true };

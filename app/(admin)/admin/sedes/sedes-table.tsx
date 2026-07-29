@@ -29,9 +29,16 @@ type Sede = {
 interface SedesTableProps {
   data: Sede[];
   carreras: Carrera[];
+  canEdit: boolean;
+  canDelete: boolean;
 }
 
-export function SedesTable({ data, carreras }: SedesTableProps) {
+export function SedesTable({
+  data,
+  carreras,
+  canEdit,
+  canDelete,
+}: SedesTableProps) {
   const columns: ColumnDef<Sede>[] = [
     {
       accessorKey: "name",
@@ -80,27 +87,35 @@ export function SedesTable({ data, carreras }: SedesTableProps) {
           <EyeOff className="h-4 w-4 text-muted-foreground" />
         ),
     },
-    {
-      id: "actions",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <SedeDialog sede={row.original} carreras={carreras}>
-            <Button variant="ghost" size="icon">
-              <Pencil className="h-4 w-4" />
-            </Button>
-          </SedeDialog>
-          <DeleteDialog
-            title="Eliminar Sede"
-            description={`¿Estás seguro de que deseas eliminar la sede "${row.original.name}"? Esta acción no se puede deshacer.`}
-            onConfirm={() => deleteSede(row.original.id)}
-          >
-            <Button variant="ghost" size="icon">
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-          </DeleteDialog>
-        </div>
-      ),
-    },
+    ...(canEdit || canDelete
+      ? [
+          {
+            id: "actions",
+            cell: ({ row }) => (
+              <div className="flex items-center gap-2">
+                {canEdit && (
+                  <SedeDialog sede={row.original} carreras={carreras}>
+                    <Button variant="ghost" size="icon">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </SedeDialog>
+                )}
+                {canDelete && (
+                  <DeleteDialog
+                    title="Eliminar Sede"
+                    description={`¿Estás seguro de que deseas eliminar la sede "${row.original.name}"? Esta acción no se puede deshacer.`}
+                    onConfirm={() => deleteSede(row.original.id)}
+                  >
+                    <Button variant="ghost" size="icon">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </DeleteDialog>
+                )}
+              </div>
+            ),
+          } satisfies ColumnDef<Sede>,
+        ]
+      : []),
   ];
 
   return (

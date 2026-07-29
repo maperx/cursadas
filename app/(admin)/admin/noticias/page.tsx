@@ -3,8 +3,14 @@ import { NoticiasTable } from "./noticias-table";
 import { NoticiaDialog } from "./noticia-dialog";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { getPermissions } from "@/lib/auth-server";
+import { can } from "@/lib/permissions";
 
 export default async function NoticiasPage() {
+  const perms = await getPermissions();
+  const canEdit = can(perms, "noticias", "edit");
+  const canDelete = can(perms, "noticias", "delete");
+
   const noticias = await getNoticias();
 
   return (
@@ -16,15 +22,17 @@ export default async function NoticiasPage() {
             Gestiona las noticias del sistema
           </p>
         </div>
-        <NoticiaDialog>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva Noticia
-          </Button>
-        </NoticiaDialog>
+        {canEdit && (
+          <NoticiaDialog>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva Noticia
+            </Button>
+          </NoticiaDialog>
+        )}
       </div>
 
-      <NoticiasTable data={noticias} />
+      <NoticiasTable data={noticias} canEdit={canEdit} canDelete={canDelete} />
     </div>
   );
 }

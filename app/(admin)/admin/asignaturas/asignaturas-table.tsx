@@ -50,34 +50,47 @@ interface AsignaturasTableProps {
   data: Asignatura[];
   carreras: Carrera[];
   docentes: Docente[];
+  canEdit: boolean;
+  canDelete: boolean;
 }
 
-export function AsignaturasTable({ data, carreras, docentes }: AsignaturasTableProps) {
+export function AsignaturasTable({
+  data,
+  carreras,
+  docentes,
+  canEdit,
+  canDelete,
+}: AsignaturasTableProps) {
   const columns: ColumnDef<Asignatura>[] = [
-    {
-      id: "select",
-      header: ({ table }) => {
-        const allSelected = table.getIsAllPageRowsSelected();
-        const someSelected = table.getIsSomePageRowsSelected();
-        return (
-          <Checkbox
-            checked={allSelected || (someSelected && "indeterminate")}
-            onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(!!value)
-            }
-            aria-label="Seleccionar todas"
-          />
-        );
-      },
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Seleccionar fila"
-        />
-      ),
-      enableSorting: false,
-    },
+    // La selección múltiple solo sirve para aplicar recesos (acción de edición).
+    ...(canEdit
+      ? [
+          {
+            id: "select",
+            header: ({ table }) => {
+              const allSelected = table.getIsAllPageRowsSelected();
+              const someSelected = table.getIsSomePageRowsSelected();
+              return (
+                <Checkbox
+                  checked={allSelected || (someSelected && "indeterminate")}
+                  onCheckedChange={(value) =>
+                    table.toggleAllPageRowsSelected(!!value)
+                  }
+                  aria-label="Seleccionar todas"
+                />
+              );
+            },
+            cell: ({ row }) => (
+              <Checkbox
+                checked={row.getIsSelected()}
+                onCheckedChange={(value) => row.toggleSelected(!!value)}
+                aria-label="Seleccionar fila"
+              />
+            ),
+            enableSorting: false,
+          } satisfies ColumnDef<Asignatura>,
+        ]
+      : []),
     {
       accessorKey: "name",
       header: "Nombre",
@@ -136,39 +149,49 @@ export function AsignaturasTable({ data, carreras, docentes }: AsignaturasTableP
           : <EyeOff className="h-4 w-4 text-muted-foreground" />
       ),
     },
-    {
-      id: "actions",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <AsignaturaDialog
-            asignatura={{
-              ...row.original,
-              docenteIds: row.original.asignaturaDocentes.map((ad) => ad.user.id),
-              recesos: row.original.recesos.map((r) => ({
-                startDate: r.startDate,
-                endDate: r.endDate,
-                notes: r.notes,
-              })),
-            }}
-            carreras={carreras}
-            docentes={docentes}
-          >
-            <Button variant="ghost" size="icon">
-              <Pencil className="h-4 w-4" />
-            </Button>
-          </AsignaturaDialog>
-          <DeleteDialog
-            title="Eliminar Asignatura"
-            description={`¿Estás seguro de que deseas eliminar la asignatura "${row.original.name}"? Esta acción no se puede deshacer.`}
-            onConfirm={() => deleteAsignatura(row.original.id)}
-          >
-            <Button variant="ghost" size="icon">
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-          </DeleteDialog>
-        </div>
-      ),
-    },
+    ...(canEdit || canDelete
+      ? [
+          {
+            id: "actions",
+            cell: ({ row }) => (
+              <div className="flex items-center gap-2">
+                {canEdit && (
+                  <AsignaturaDialog
+                    asignatura={{
+                      ...row.original,
+                      docenteIds: row.original.asignaturaDocentes.map(
+                        (ad) => ad.user.id
+                      ),
+                      recesos: row.original.recesos.map((r) => ({
+                        startDate: r.startDate,
+                        endDate: r.endDate,
+                        notes: r.notes,
+                      })),
+                    }}
+                    carreras={carreras}
+                    docentes={docentes}
+                  >
+                    <Button variant="ghost" size="icon">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </AsignaturaDialog>
+                )}
+                {canDelete && (
+                  <DeleteDialog
+                    title="Eliminar Asignatura"
+                    description={`¿Estás seguro de que deseas eliminar la asignatura "${row.original.name}"? Esta acción no se puede deshacer.`}
+                    onConfirm={() => deleteAsignatura(row.original.id)}
+                  >
+                    <Button variant="ghost" size="icon">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </DeleteDialog>
+                )}
+              </div>
+            ),
+          } satisfies ColumnDef<Asignatura>,
+        ]
+      : []),
   ];
 
   return (
@@ -177,7 +200,7 @@ export function AsignaturasTable({ data, carreras, docentes }: AsignaturasTableP
       data={data}
       searchColumn="name"
       searchPlaceholder="Buscar asignatura..."
-      enableRowSelection
+      enableRowSelection={canEdit}
       getRowId={(row) => row.id}
       filters={[
         {
@@ -186,17 +209,21 @@ export function AsignaturasTable({ data, carreras, docentes }: AsignaturasTableP
           placeholder: "Todas las carreras",
         },
       ]}
-      renderToolbar={({ selectedIds, clearSelection }) => (
-        <BulkRecesoDialog
-          asignaturaIds={selectedIds}
-          onApplied={clearSelection}
-        >
-          <Button size="sm" variant="default">
-            <CalendarOff className="h-4 w-4 mr-1" />
-            Aplicar receso
-          </Button>
-        </BulkRecesoDialog>
-      )}
+      renderToolbar={
+        canEdit
+          ? ({ selectedIds, clearSelection }) => (
+              <BulkRecesoDialog
+                asignaturaIds={selectedIds}
+                onApplied={clearSelection}
+              >
+                <Button size="sm" variant="default">
+                  <CalendarOff className="h-4 w-4 mr-1" />
+                  Aplicar receso
+                </Button>
+              </BulkRecesoDialog>
+            )
+          : undefined
+      }
     />
   );
 }

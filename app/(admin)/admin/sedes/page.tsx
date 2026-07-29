@@ -5,8 +5,14 @@ import { SedesTable } from "./sedes-table";
 import { SedeDialog } from "./sede-dialog";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { getPermissions } from "@/lib/auth-server";
+import { can } from "@/lib/permissions";
 
 export default async function SedesPage() {
+  const perms = await getPermissions();
+  const canEdit = can(perms, "sedes", "edit");
+  const canDelete = can(perms, "sedes", "delete");
+
   const [sedes, carrerasRaw, aulas] = await Promise.all([
     getSedesConCarreras(),
     getCarreras(),
@@ -33,15 +39,22 @@ export default async function SedesPage() {
             Gestiona las sedes, sus aulas y las carreras que se dictan en cada una
           </p>
         </div>
-        <SedeDialog carreras={carreras}>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva Sede
-          </Button>
-        </SedeDialog>
+        {canEdit && (
+          <SedeDialog carreras={carreras}>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva Sede
+            </Button>
+          </SedeDialog>
+        )}
       </div>
 
-      <SedesTable data={data} carreras={carreras} />
+      <SedesTable
+        data={data}
+        carreras={carreras}
+        canEdit={canEdit}
+        canDelete={canDelete}
+      />
     </div>
   );
 }

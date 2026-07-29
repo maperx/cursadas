@@ -39,7 +39,8 @@ interface CursadasHeaderProps {
   carreras: CarreraOption[];
   asignaturas: Asignatura[];
   docentes: Docente[];
-  aulas: Aula[];
+  /** Aulas de las sedes donde el usuario puede editar cursadas. */
+  aulasEditables: Aula[];
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
 }
@@ -48,10 +49,12 @@ export function CursadasHeader({
   carreras,
   asignaturas,
   docentes,
-  aulas,
+  aulasEditables,
   viewMode,
   onViewModeChange,
 }: CursadasHeaderProps) {
+  // Sin ninguna sede editable no hay dónde crear la cursada.
+  const canCreate = aulasEditables.length > 0;
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -101,17 +104,19 @@ export function CursadasHeader({
             </Button>
           </div>
         )}
-        <CursadaDialog
-          carreras={carreras}
-          asignaturas={asignaturas}
-          docentes={docentes}
-          aulas={aulas}
-        >
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva Cursada
-          </Button>
-        </CursadaDialog>
+        {canCreate && (
+          <CursadaDialog
+            carreras={carreras}
+            asignaturas={asignaturas}
+            docentes={docentes}
+            aulas={aulasEditables}
+          >
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva Cursada
+            </Button>
+          </CursadaDialog>
+        )}
       </div>
     </div>
   );

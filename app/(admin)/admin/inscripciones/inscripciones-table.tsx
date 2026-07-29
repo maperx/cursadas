@@ -41,7 +41,8 @@ type Inscripcion = {
   };
 };
 
-const columns: ColumnDef<Inscripcion>[] = [
+function buildColumns(canDelete: boolean): ColumnDef<Inscripcion>[] {
+  return [
   {
     id: "estudiante",
     header: "Estudiante",
@@ -96,30 +97,36 @@ const columns: ColumnDef<Inscripcion>[] = [
     cell: ({ row }) =>
       format(new Date(row.original.createdAt), "dd/MM/yyyy", { locale: es }),
   },
-  {
-    id: "actions",
-    cell: ({ row }) => (
-      <DeleteDialog
-        title="Eliminar Inscripción"
-        description={`¿Estás seguro de que deseas eliminar la inscripción de "${row.original.user.name}" en "${row.original.cursada.asignatura.name}"?`}
-        onConfirm={() => deleteInscripcion(row.original.id)}
-      >
-        <Button variant="ghost" size="icon">
-          <Trash2 className="h-4 w-4 text-destructive" />
-        </Button>
-      </DeleteDialog>
-    ),
-  },
-];
+    ...(canDelete
+      ? [
+          {
+            id: "actions",
+            cell: ({ row }) => (
+              <DeleteDialog
+                title="Eliminar Inscripción"
+                description={`¿Estás seguro de que deseas eliminar la inscripción de "${row.original.user.name}" en "${row.original.cursada.asignatura.name}"?`}
+                onConfirm={() => deleteInscripcion(row.original.id)}
+              >
+                <Button variant="ghost" size="icon">
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </DeleteDialog>
+            ),
+          } satisfies ColumnDef<Inscripcion>,
+        ]
+      : []),
+  ];
+}
 
 interface InscripcionesTableProps {
   data: Inscripcion[];
+  canDelete: boolean;
 }
 
-export function InscripcionesTable({ data }: InscripcionesTableProps) {
+export function InscripcionesTable({ data, canDelete }: InscripcionesTableProps) {
   return (
     <DataTable
-      columns={columns}
+      columns={buildColumns(canDelete)}
       data={data}
       searchColumn="estudiante"
       searchPlaceholder="Buscar por estudiante..."

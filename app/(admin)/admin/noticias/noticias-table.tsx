@@ -22,7 +22,11 @@ type Noticia = {
   updatedAt: Date;
 };
 
-const columns: ColumnDef<Noticia>[] = [
+function buildColumns(
+  canEdit: boolean,
+  canDelete: boolean
+): ColumnDef<Noticia>[] {
+  return [
   {
     accessorKey: "title",
     header: "Título",
@@ -73,37 +77,48 @@ const columns: ColumnDef<Noticia>[] = [
         <EyeOff className="h-4 w-4 text-muted-foreground" />
       ),
   },
-  {
-    id: "actions",
-    cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        <NoticiaDialog noticia={row.original}>
-          <Button variant="ghost" size="icon">
-            <Pencil className="h-4 w-4" />
-          </Button>
-        </NoticiaDialog>
-        <DeleteDialog
-          title="Eliminar Noticia"
-          description={`¿Estás seguro de que deseas eliminar la noticia "${row.original.title}"? Esta acción no se puede deshacer.`}
-          onConfirm={() => deleteNoticia(row.original.id)}
-        >
-          <Button variant="ghost" size="icon">
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
-        </DeleteDialog>
-      </div>
-    ),
-  },
-];
+    ...(canEdit || canDelete
+      ? [
+          {
+            id: "actions",
+            cell: ({ row }) => (
+              <div className="flex items-center gap-2">
+                {canEdit && (
+                  <NoticiaDialog noticia={row.original}>
+                    <Button variant="ghost" size="icon">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </NoticiaDialog>
+                )}
+                {canDelete && (
+                  <DeleteDialog
+                    title="Eliminar Noticia"
+                    description={`¿Estás seguro de que deseas eliminar la noticia "${row.original.title}"? Esta acción no se puede deshacer.`}
+                    onConfirm={() => deleteNoticia(row.original.id)}
+                  >
+                    <Button variant="ghost" size="icon">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </DeleteDialog>
+                )}
+              </div>
+            ),
+          } satisfies ColumnDef<Noticia>,
+        ]
+      : []),
+  ];
+}
 
 interface NoticiasTableProps {
   data: Noticia[];
+  canEdit: boolean;
+  canDelete: boolean;
 }
 
-export function NoticiasTable({ data }: NoticiasTableProps) {
+export function NoticiasTable({ data, canEdit, canDelete }: NoticiasTableProps) {
   return (
     <DataTable
-      columns={columns}
+      columns={buildColumns(canEdit, canDelete)}
       data={data}
       searchColumn="title"
       searchPlaceholder="Buscar noticia..."

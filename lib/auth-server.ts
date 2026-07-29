@@ -1,5 +1,14 @@
+import { cache } from "react";
 import { headers } from "next/headers";
 import { auth } from "./auth";
+import { loadPermissions } from "./permissions-server";
+import {
+  EMPTY_PERMISSIONS,
+  can,
+  type PermissionAction,
+  type PermissionSet,
+  type ResourceKey,
+} from "./permissions";
 
 export async function getSession() {
   const session = await auth.api.getSession({
@@ -16,17 +25,35 @@ export async function requireAuth() {
   return session;
 }
 
-export async function requireAdmin() {
+/** Permisos del usuario de la request (una sola consulta por request). */
+export const getPermissions = cache(async (): Promise<PermissionSet> => {
+  const session = await getSession();
+  if (!session) return EMPTY_PERMISSIONS;
+  return loadPermissions(session.user);
+});
+
+/**
+ * Exige un permiso concreto. Para cursadas, `sedeId` acota el permiso a esa
+ * sede; sin `sedeId` alcanza con tenerlo en alguna.
+ */
+export async function requirePermission(
+  resource: ResourceKey,
+  action: PermissionAction,
+  sedeId?: string | null
+) {
   const session = await requireAuth();
-  if (session.user.role !== "admin") {
+  const perms = await getPermissions();
+  if (!can(perms, resource, action, sedeId)) {
     throw new Error("Forbidden");
   }
-  return session;
+  return { session, perms };
 }
 
-export async function requireNoticiasOrAdmin() {
+/** Solo el Superadmin (configurado en SUPERADMIN_EMAILS). */
+export async function requireSuperadmin() {
   const session = await requireAuth();
-  if (session.user.role !== "admin" && session.user.role !== "noticias") {
+  const perms = await getPermissions();
+  if (!perms.superadmin) {
     throw new Error("Forbidden");
   }
   return session;

@@ -79,9 +79,15 @@ function Field({ label, value }: { label: string; value: string }) {
 export function RegimenReviewDialog({
   children,
   solicitud,
+  canResolverSolicitudes,
+  canResolverCambios,
 }: {
   children: React.ReactNode;
   solicitud: Solicitud;
+  /** Puede aprobar/rechazar la solicitud. */
+  canResolverSolicitudes: boolean;
+  /** Puede aprobar/reabrir los cambios de comisión. */
+  canResolverCambios: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -283,7 +289,7 @@ export function RegimenReviewDialog({
                           {CAMBIO_ESTADO_LABELS[a.comisionEstado]}
                         </Badge>
                         <div className="ml-auto">
-                          {aprobado ? (
+                          {!canResolverCambios ? null : aprobado ? (
                             <Button
                               type="button"
                               size="sm"
@@ -330,52 +336,67 @@ export function RegimenReviewDialog({
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="nota">
-              Observaciones / motivo (obligatorio para rechazar)
-            </Label>
-            <Textarea
-              id="nota"
-              rows={3}
-              value={nota}
-              onChange={(e) => setNota(e.target.value)}
-              placeholder="Se incluye en el email al estudiante..."
-              disabled={loading !== null}
-            />
-          </div>
+          {canResolverSolicitudes ? (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="nota">
+                  Observaciones / motivo (obligatorio para rechazar)
+                </Label>
+                <Textarea
+                  id="nota"
+                  rows={3}
+                  value={nota}
+                  onChange={(e) => setNota(e.target.value)}
+                  placeholder="Se incluye en el email al estudiante..."
+                  disabled={loading !== null}
+                />
+              </div>
 
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => handleDecision("rechazada")}
-              disabled={loading !== null}
-            >
-              {loading === "rechazada" ? (
-                <Spinner size="sm" />
-              ) : (
-                <>
-                  <X className="h-4 w-4 mr-1" />
-                  Rechazar
-                </>
-              )}
-            </Button>
-            <Button
-              type="button"
-              className="bg-green-600 text-white hover:bg-green-700"
-              onClick={() => handleDecision("aprobada")}
-              disabled={loading !== null}
-            >
-              {loading === "aprobada" ? (
-                <Spinner size="sm" />
-              ) : (
-                <>
-                  <Check className="h-4 w-4 mr-1" />
-                  Aprobar
-                </>
-              )}
-            </Button>
-          </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => handleDecision("rechazada")}
+                  disabled={loading !== null}
+                >
+                  {loading === "rechazada" ? (
+                    <Spinner size="sm" />
+                  ) : (
+                    <>
+                      <X className="h-4 w-4 mr-1" />
+                      Rechazar
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  className="bg-green-600 text-white hover:bg-green-700"
+                  onClick={() => handleDecision("aprobada")}
+                  disabled={loading !== null}
+                >
+                  {loading === "aprobada" ? (
+                    <Spinner size="sm" />
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4 mr-1" />
+                      Aprobar
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          ) : (
+            solicitud.observacionesRevision && (
+              <div>
+                <p className="mb-1 text-xs text-muted-foreground">
+                  Observaciones de la revisión
+                </p>
+                <p className="whitespace-pre-line text-sm">
+                  {solicitud.observacionesRevision}
+                </p>
+              </div>
+            )
+          )}
         </div>
       </DialogContent>
     </Dialog>

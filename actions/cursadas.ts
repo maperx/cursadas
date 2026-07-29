@@ -12,6 +12,26 @@ import {
 } from "@/lib/db/schema";
 import { eq, and, ne } from "drizzle-orm";
 import { z } from "zod";
+import { requirePermission } from "@/lib/auth-server";
+import { sedesCon } from "@/lib/permissions";
+
+// La sede de una cursada es la de su aula: los permisos de cursadas se
+// otorgan sede por sede, así que toda mutación se valida contra esa sede.
+async function sedeDeAula(aulaId: string) {
+  const aula = await db.query.aulas.findFirst({
+    where: eq(aulas.id, aulaId),
+    columns: { sedeId: true },
+  });
+  return aula?.sedeId ?? null;
+}
+
+async function sedeDeCursada(cursadaId: string) {
+  const cursada = await db.query.cursadas.findFirst({
+    where: eq(cursadas.id, cursadaId),
+    with: { aula: { columns: { sedeId: true } } },
+  });
+  return cursada?.aula.sedeId ?? null;
+}
 
 
 const cursadaSchema = z.object({
@@ -45,7 +65,9 @@ const cursadaSchema = z.object({
 });
 
 export async function getCursadas() {
-  return await db.query.cursadas.findMany({
+  const { perms } = await requirePermission("cursadas", "view");
+
+  const rows = await db.query.cursadas.findMany({
     with: {
       aula: { with: { sede: true } },
       carrera: true,
@@ -61,6 +83,11 @@ export async function getCursadas() {
     },
     orderBy: (cursadas, { asc }) => [asc(cursadas.startTime)],
   });
+
+  if (perms.superadmin) return rows;
+
+  const sedesVisibles = new Set(sedesCon(perms, "view"));
+  return rows.filter((cursada) => sedesVisibles.has(cursada.aula.sedeId));
 }
 
 export async function getCursada(id: string) {
@@ -486,6 +513,12 @@ export async function createCursada(formData: FormData) {
     return { error: validated.error.flatten().fieldErrors };
   }
 
+  const sedeDestino = await sedeDeAula(validated.data.aulaId);
+  if (!sedeDestino) {
+    return { error: { _form: ["El aula seleccionada no existe"] } };
+  }
+  await requirePermission("cursadas", "edit", sedeDestino);
+
   const sedeError = await checkCarreraEnSedeDelAula(
     validated.data.aulaId,
     validated.data.carreraId
@@ -568,6 +601,19 @@ export async function updateCursada(id: string, formData: FormData) {
     return { error: validated.error.flatten().fieldErrors };
   }
 
+  const sedeActual = await sedeDeCursada(id);
+  if (!sedeActual) {
+    return { error: { _form: ["La cursada no existe"] } };
+  }
+  await requirePermission("cursadas", "edit", sedeActual);
+
+  const sedeDestino = await sedeDeAula(validated.data.aulaId);
+  if (!sedeDestino) {
+    return { error: { _form: ["El aula seleccionada no existe"] } };
+  }
+  // Mover una cursada a otra sede exige permiso también en la sede destino.
+  await requirePermission("cursadas", "edit", sedeDestino);
+
   const sedeError = await checkCarreraEnSedeDelAula(
     validated.data.aulaId,
     validated.data.carreraId
@@ -632,6 +678,8 @@ export async function updateCursada(id: string, formData: FormData) {
 }
 
 export async function deleteCursada(id: string) {
+  await requirePermission("cursadas", "delete", await sedeDeCursada(id));
+
   await db.delete(cursadas).where(eq(cursadas.id, id));
   revalidatePath("/admin/cursadas");
   revalidatePath("/");
@@ -660,6 +708,7 @@ export async function suspendCursadaRepeticion(input: {
   }
 
   const { cursadaId, date, observacion } = validated.data;
+  await requirePermission("cursadas", "edit", await sedeDeCursada(cursadaId));
 
   await db
     .insert(cursadaSuspensiones)
@@ -685,6 +734,12 @@ export async function removeCursadaSuspension(input: {
   if (!validated.success) {
     return { error: validated.error.flatten().fieldErrors };
   }
+
+  await requirePermission(
+    "cursadas",
+    "edit",
+    await sedeDeCursada(validated.data.cursadaId)
+  );
 
   await db
     .delete(cursadaSuspensiones)

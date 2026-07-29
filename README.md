@@ -17,9 +17,27 @@ Permite administrar carreras, asignaturas, aulas, horarios de cursada, examenes 
 
 | Rol | Acceso |
 |-----|--------|
-| **Admin** | Panel completo: carreras, asignaturas, aulas, cursadas, inscripciones, usuarios |
+| **Superadmin** | Todos los permisos. Es el unico que puede asignar permisos a los demas. Se configura por email en `SUPERADMIN_EMAILS` |
+| **Admin** | Accede al panel, pero solo a las secciones y acciones que el Superadmin le haya habilitado |
 | **Docente** | Ver sus catedras asignadas |
 | **Estudiante** | Ver cursadas disponibles, inscribirse, ver sus inscripciones |
+
+### Permisos por usuario
+
+Cada usuario con rol **Admin** tiene permisos independientes de **ver**, **editar**
+(incluye crear) y **borrar** sobre cada seccion del panel: Sedes, Carreras,
+Asignaturas, Aulas, Cursadas, Inscripciones, Regimen especial, Noticias y
+Usuarios. Sin permiso de *ver*, la seccion no aparece en el menu.
+
+- **Cursadas:** los permisos se otorgan **por sede**. El usuario solo ve y
+  modifica las cursadas de las sedes habilitadas (la sede de una cursada es la
+  de su aula).
+- **Regimen especial:** ademas de ver y borrar, tiene dos permisos separados:
+  *resolver solicitudes* (aprobar/rechazar solicitudes) y *resolver cambios de
+  comision* (aprobar/reabrir cambios de comision).
+
+Los permisos se editan desde **Panel > Usuarios**, en la columna *Permisos*
+(solo visible para el Superadmin).
 
 ## Requisitos
 
@@ -43,10 +61,13 @@ cp .env.example .env
 # 4. Crear la base de datos y aplicar el schema
 npm run db:push
 
-# 5. (Opcional) Cargar datos de ejemplo
+# 5. Migrar los permisos de los admins existentes (one-off)
+npm run db:migrate-permissions
+
+# 6. (Opcional) Cargar datos de ejemplo
 npm run db:seed
 
-# 6. Iniciar el servidor de desarrollo
+# 7. Iniciar el servidor de desarrollo
 npm run dev
 ```
 
@@ -66,6 +87,9 @@ NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:3000
 # Google OAuth (opcional)
 GOOGLE_CLIENT_ID=tu-google-client-id
 GOOGLE_CLIENT_SECRET=tu-google-client-secret
+
+# Emails con rol Superadmin, separados por coma
+SUPERADMIN_EMAILS=superadmin@tudominio.com
 
 # Codigo que deben ingresar los docentes al registrarse
 DOCENTE_REGISTER_CODE=codigo-docente
@@ -92,6 +116,7 @@ SMTP_FROM=Cursadas <noreply@tudominio.com>
 | `npm run db:push` | Aplicar schema directamente a la DB |
 | `npm run db:studio` | Abrir Drizzle Studio (GUI para la DB) |
 | `npm run db:seed` | Cargar datos de ejemplo |
+| `npm run db:migrate-permissions` | Migracion one-off de permisos (crea la tabla y otorga todos los permisos a los admins existentes) |
 
 ## Deploy a produccion
 

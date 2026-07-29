@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
+import { loadPermissions } from "@/lib/permissions-server";
+import {
+  can,
+  canAccessAdmin,
+  resourceForPath,
+  visibleResources,
+} from "@/lib/permissions";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -15,18 +22,22 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
 
-    const role = session.user.role;
+    // El acceso al panel lo definen los permisos del usuario; el Superadmin
+    // (SUPERADMIN_EMAILS) los tiene todos.
+    const perms = await loadPermissions(session.user);
 
-    // Rol "noticias" solo puede acceder a /admin y /admin/noticias
-    if (role === "noticias") {
-      const allowed =
-        pathname === "/admin" ||
-        pathname.startsWith("/admin/noticias");
-      if (!allowed) {
-        return NextResponse.redirect(new URL("/admin/noticias", request.url));
-      }
-    } else if (role !== "admin") {
+    if (!canAccessAdmin(perms)) {
       return NextResponse.redirect(new URL("/", request.url));
+    }
+
+    const resource = resourceForPath(pathname);
+    if (resource && !can(perms, resource, "view")) {
+      // Sin permiso de lectura sobre esta sección: se lo manda a la primera
+      // sección que sí puede ver.
+      const [primera] = visibleResources(perms);
+      return NextResponse.redirect(
+        new URL(primera?.href ?? "/admin", request.url)
+      );
     }
   }
 

@@ -4,8 +4,14 @@ import { AulasTable } from "./aulas-table";
 import { AulaDialog } from "./aula-dialog";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { getPermissions } from "@/lib/auth-server";
+import { can } from "@/lib/permissions";
 
 export default async function AulasPage() {
+  const perms = await getPermissions();
+  const canEdit = can(perms, "aulas", "edit");
+  const canDelete = can(perms, "aulas", "delete");
+
   const [aulas, sedesRaw] = await Promise.all([getAulas(), getSedes()]);
 
   const sedes = sedesRaw.map((s) => ({ id: s.id, name: s.name }));
@@ -19,15 +25,22 @@ export default async function AulasPage() {
             Gestiona las aulas de cada sede
           </p>
         </div>
-        <AulaDialog sedes={sedes}>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva Aula
-          </Button>
-        </AulaDialog>
+        {canEdit && (
+          <AulaDialog sedes={sedes}>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva Aula
+            </Button>
+          </AulaDialog>
+        )}
       </div>
 
-      <AulasTable data={aulas} sedes={sedes} />
+      <AulasTable
+        data={aulas}
+        sedes={sedes}
+        canEdit={canEdit}
+        canDelete={canDelete}
+      />
     </div>
   );
 }
