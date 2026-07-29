@@ -14,14 +14,8 @@ export type RegimenCambioEstado = (typeof REGIMEN_CAMBIO_ESTADOS)[number];
 export const REGIMEN_MOTIVOS = ["laboral", "personas_a_cargo", "ambos"] as const;
 export type RegimenMotivo = (typeof REGIMEN_MOTIVOS)[number];
 
-export const REGIMEN_SEDES = [
-  "parana",
-  "ramirez",
-  "gualeguay",
-  "villaguay",
-  "concordia",
-] as const;
-export type RegimenSede = (typeof REGIMEN_SEDES)[number];
+// Las sedes son una entidad de la base (tabla `sedes`), no una lista fija:
+// se cargan desde el ABM de sedes del admin.
 
 // Grupos de documentación. El orden se respeta en la UI.
 export const DOC_GENERALES = [
@@ -53,14 +47,6 @@ export const MOTIVO_LABELS: Record<RegimenMotivo, string> = {
   laboral: "Laboral",
   personas_a_cargo: "Personas a cargo",
   ambos: "Ambos",
-};
-
-export const SEDE_LABELS: Record<RegimenSede, string> = {
-  parana: "Paraná",
-  ramirez: "Ramírez",
-  gualeguay: "Gualeguay",
-  villaguay: "Villaguay",
-  concordia: "Concordia",
 };
 
 export const ESTADO_LABELS: Record<RegimenEstado, string> = {

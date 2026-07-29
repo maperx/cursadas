@@ -11,7 +11,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "npx tsx lib/db/seed.ts"
+    "db:seed": "npx tsx lib/db/seed.ts",
+    "db:migrate-sedes": "npx tsx lib/db/migrate-sedes.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

@@ -3,6 +3,7 @@ import {
   Building2,
   GraduationCap,
   LayoutDashboard,
+  MapPin,
   Newspaper,
   UserCog,
   ClipboardList,
@@ -23,6 +24,12 @@ export const navItems: NavItem[] = [
     title: "Dashboard",
     href: "/admin",
     icon: LayoutDashboard,
+  },
+  {
+    title: "Sedes",
+    href: "/admin/sedes",
+    icon: MapPin,
+    roles: ["admin"],
   },
   {
     title: "Carreras",

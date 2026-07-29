@@ -13,8 +13,10 @@ export const carreras = pgTable("carreras", {
 export const carrerasRelations = relations(carreras, ({ many }) => ({
   asignaturas: many(asignaturas),
   cursadas: many(cursadas),
+  carreraSedes: many(carreraSedes),
 }));
 
 // Forward declaration for relations - will be imported from asignaturas
 import { asignaturas } from "./asignaturas";
 import { cursadas } from "./cursadas";
+import { carreraSedes } from "./sedes";

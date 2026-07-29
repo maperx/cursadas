@@ -13,7 +13,7 @@ export async function getInscripciones() {
         with: {
           asignatura: true,
           carrera: true,
-          aula: true,
+          aula: { with: { sede: true } },
         },
       },
     },
@@ -29,7 +29,7 @@ export async function getInscripcionesByUser(userId: string) {
         with: {
           asignatura: true,
           carrera: true,
-          aula: true,
+          aula: { with: { sede: true } },
           cursadaDocentes: {
             with: {
               user: true,

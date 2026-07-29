@@ -13,8 +13,6 @@ import {
   ESTADO_LABELS,
   MOTIVO_LABELS,
   REGIMEN_ESTADOS,
-  REGIMEN_SEDES,
-  SEDE_LABELS,
   type RegimenEstado,
 } from "@/lib/regimen-especial";
 import { RegimenReviewDialog, type Solicitud } from "./regimen-review-dialog";
@@ -50,9 +48,8 @@ const columns: ColumnDef<Solicitud>[] = [
   },
   {
     id: "sede",
-    accessorFn: (row) => row.sede,
+    accessorFn: (row) => row.sede.name,
     header: "Sede",
-    cell: ({ row }) => SEDE_LABELS[row.original.sede],
   },
   {
     id: "carrera",
@@ -120,6 +117,9 @@ interface RegimenTableProps {
 }
 
 export function RegimenTable({ data }: RegimenTableProps) {
+  // Las sedes del filtro salen de las solicitudes cargadas.
+  const sedes = [...new Set(data.map((s) => s.sede.name))].sort();
+
   return (
     <DataTable
       columns={columns}
@@ -137,10 +137,7 @@ export function RegimenTable({ data }: RegimenTableProps) {
         },
         {
           column: "sede",
-          options: REGIMEN_SEDES.map((s) => ({
-            label: SEDE_LABELS[s],
-            value: s,
-          })),
+          options: sedes.map((name) => ({ label: name, value: name })),
           placeholder: "Todas las sedes",
         },
       ]}

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { getCursadasByFilters } from "@/actions/cursadas";
 import { getCarreras } from "@/actions/carreras";
 import { getAulas } from "@/actions/aulas";
+import { getSedes } from "@/actions/sedes";
 import { getAsignaturas } from "@/actions/asignaturas";
 import { ClassCard } from "@/components/public/class-card";
 import { ClassFilters } from "@/components/public/class-filters";
@@ -12,6 +13,7 @@ import { Spinner } from "@/components/ui/spinner";
 interface HomePageProps {
   searchParams: Promise<{
     dia?: string;
+    sede?: string;
     carrera?: string;
     aula?: string;
     asignatura?: string;
@@ -25,6 +27,7 @@ async function CursadasGrid({
 }: {
   searchParams: {
     dia?: string;
+    sede?: string;
     carrera?: string;
     aula?: string;
     asignatura?: string;
@@ -41,6 +44,7 @@ async function CursadasGrid({
       : searchParams.dia
         ? parseInt(searchParams.dia)
         : today,
+    sedeId: searchParams.sede,
     carreraId: searchParams.carrera,
     asignaturaId: searchParams.asignatura,
     aulaId: searchParams.aula,
@@ -82,8 +86,18 @@ async function CursadasGrid({
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
-  const [carreras, aulas, asignaturas, resolvedSearchParams] =
-    await Promise.all([getCarreras(), getAulas(), getAsignaturas(), searchParams]);
+  const [carreras, aulas, asignaturas, sedesRaw, resolvedSearchParams] =
+    await Promise.all([
+      getCarreras(),
+      getAulas(),
+      getAsignaturas(),
+      getSedes(),
+      searchParams,
+    ]);
+
+  const sedes = sedesRaw
+    .filter((s) => s.visible)
+    .map((s) => ({ id: s.id, name: s.name }));
 
   // Get current day of week (0 = Sunday, 1 = Monday, etc.)
   const today = new Date().getDay();
@@ -119,6 +133,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       </div>
 
       <ClassFilters
+        sedes={sedes}
         carreras={carreras}
         aulas={aulas}
         asignaturas={asignaturasForFilters}

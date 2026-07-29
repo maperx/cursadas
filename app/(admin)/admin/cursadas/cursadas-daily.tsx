@@ -16,11 +16,16 @@ type Carrera = {
   color: string;
 };
 
+// La lista para elegir carrera necesita saber en qué sedes se dicta cada una.
+type CarreraOption = Carrera & { sedeIds: string[] };
+
 type Aula = {
   id: string;
   name: string;
   building: string;
   capacity: number | null;
+  sedeId: string;
+  sede: { id: string; name: string };
 };
 
 type Cursada = {
@@ -63,7 +68,7 @@ interface CursadasDailyProps {
   data: Cursada[];
   selectedDate: Date;
   onDateChange: (date: Date) => void;
-  carreras: Carrera[];
+  carreras: CarreraOption[];
   asignaturas: Asignatura[];
   docentes: Docente[];
   aulas: Aula[];

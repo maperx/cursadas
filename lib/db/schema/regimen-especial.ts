@@ -11,12 +11,12 @@ import { relations } from "drizzle-orm";
 import { user } from "./auth";
 import { carreras } from "./carreras";
 import { asignaturas } from "./asignaturas";
+import { sedes } from "./sedes";
 import {
   REGIMEN_CAMBIO_ESTADOS,
   REGIMEN_DOC_TIPOS,
   REGIMEN_ESTADOS,
   REGIMEN_MOTIVOS,
-  REGIMEN_SEDES,
 } from "../../regimen-especial";
 
 export const regimenEstadoEnum = pgEnum("regimen_estado", REGIMEN_ESTADOS);
@@ -25,7 +25,6 @@ export const regimenCambioEstadoEnum = pgEnum(
   REGIMEN_CAMBIO_ESTADOS
 );
 export const regimenMotivoEnum = pgEnum("regimen_motivo", REGIMEN_MOTIVOS);
-export const regimenSedeEnum = pgEnum("regimen_sede", REGIMEN_SEDES);
 export const regimenDocumentoTipoEnum = pgEnum(
   "regimen_documento_tipo",
   REGIMEN_DOC_TIPOS
@@ -42,7 +41,10 @@ export const regimenSolicitudes = pgTable("regimen_solicitudes", {
   dni: text("dni").notNull(),
   telefono: text("telefono").notNull(),
   motivo: regimenMotivoEnum("motivo").notNull(),
-  sede: regimenSedeEnum("sede").notNull(),
+  // restrict: no se puede borrar una sede con solicitudes asociadas.
+  sedeId: uuid("sede_id")
+    .notNull()
+    .references(() => sedes.id, { onDelete: "restrict" }),
   // restrict: no se puede borrar una carrera con solicitudes asociadas.
   carreraId: uuid("carrera_id")
     .notNull()
@@ -69,6 +71,10 @@ export const regimenSolicitudesRelations = relations(
     carrera: one(carreras, {
       fields: [regimenSolicitudes.carreraId],
       references: [carreras.id],
+    }),
+    sede: one(sedes, {
+      fields: [regimenSolicitudes.sedeId],
+      references: [sedes.id],
     }),
     documentos: many(regimenDocumentos),
     asignaturas: many(regimenAsignaturas),

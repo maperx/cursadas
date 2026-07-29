@@ -12,25 +12,40 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/use-toast";
 import { createAula, updateAula } from "@/actions/aulas";
 
+type Sede = {
+  id: string;
+  name: string;
+};
+
 interface AulaDialogProps {
   children: React.ReactNode;
+  sedes: Sede[];
   aula?: {
     id: string;
     name: string;
     building: string;
     capacity: number | null;
+    sedeId: string;
   };
 }
 
-export function AulaDialog({ children, aula }: AulaDialogProps) {
+export function AulaDialog({ children, sedes, aula }: AulaDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
+  const [sedeId, setSedeId] = useState(aula?.sedeId ?? "");
 
   const isEditing = !!aula;
 
@@ -40,6 +55,7 @@ export function AulaDialog({ children, aula }: AulaDialogProps) {
     setErrors({});
 
     const formData = new FormData(e.currentTarget);
+    formData.set("sedeId", sedeId);
     const result = isEditing
       ? await updateAula(aula.id, formData)
       : await createAula(formData);
@@ -73,6 +89,24 @@ export function AulaDialog({ children, aula }: AulaDialogProps) {
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>Sede</Label>
+            <Select value={sedeId} onValueChange={setSedeId} disabled={isLoading}>
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar sede" />
+              </SelectTrigger>
+              <SelectContent>
+                {sedes.map((sede) => (
+                  <SelectItem key={sede.id} value={sede.id}>
+                    {sede.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.sedeId && (
+              <p className="text-sm text-destructive">{errors.sedeId[0]}</p>
+            )}
+          </div>
           <div className="space-y-2">
             <Label htmlFor="name">Nombre</Label>
             <Input

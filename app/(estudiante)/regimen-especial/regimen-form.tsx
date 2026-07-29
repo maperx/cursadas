@@ -24,8 +24,6 @@ import {
   DOC_TIPO_LABELS,
   MOTIVO_LABELS,
   REGIMEN_MOTIVOS,
-  REGIMEN_SEDES,
-  SEDE_LABELS,
   motivoIncluyeLaboral,
   motivoIncluyePersonas,
   soloNumeros,
@@ -34,21 +32,23 @@ import {
 } from "@/lib/regimen-especial";
 import { DocumentoUploader, type UploadedDoc } from "./documento-uploader";
 
-type Carrera = { id: string; name: string; color: string };
+type Sede = { id: string; name: string };
+type Carrera = { id: string; name: string; color: string; sedeIds: string[] };
 type Asignatura = { id: string; name: string; carreraId: string };
 
 interface RegimenFormProps {
+  sedes: Sede[];
   carreras: Carrera[];
   asignaturas: Asignatura[];
 }
 
-export function RegimenForm({ carreras, asignaturas }: RegimenFormProps) {
+export function RegimenForm({ sedes, carreras, asignaturas }: RegimenFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
 
   const [motivo, setMotivo] = useState<RegimenMotivo | "">("");
-  const [sede, setSede] = useState("");
+  const [sedeId, setSedeId] = useState("");
   const [carreraId, setCarreraId] = useState("");
   // Asignaturas marcadas → comisión en la que el estudiante está inscripto.
   // La clave presente en el objeto es lo que marca la asignatura seleccionada.
@@ -57,6 +57,12 @@ export function RegimenForm({ carreras, asignaturas }: RegimenFormProps) {
 
   const setDoc = (tipo: RegimenDocTipo, doc: UploadedDoc | null) =>
     setDocs((prev) => ({ ...prev, [tipo]: doc }));
+
+  // Solo las carreras que se dictan en la sede elegida.
+  const carrerasDeSede = useMemo(
+    () => (sedeId ? carreras.filter((c) => c.sedeIds.includes(sedeId)) : carreras),
+    [carreras, sedeId]
+  );
 
   const asignaturasDeCarrera = useMemo(
     () => asignaturas.filter((a) => a.carreraId === carreraId),
@@ -86,7 +92,7 @@ export function RegimenForm({ carreras, asignaturas }: RegimenFormProps) {
 
     const formData = new FormData(e.currentTarget);
     formData.set("motivo", motivo);
-    formData.set("sede", sede);
+    formData.set("sedeId", sedeId);
     formData.set("carreraId", carreraId);
     formData.set(
       "asignaturas",
@@ -198,20 +204,29 @@ export function RegimenForm({ carreras, asignaturas }: RegimenFormProps) {
           </div>
           <div className="space-y-2">
             <Label>Sede</Label>
-            <Select value={sede} onValueChange={setSede} disabled={isLoading}>
+            <Select
+              value={sedeId}
+              onValueChange={(value) => {
+                setSedeId(value);
+                // La carrera depende de la sede.
+                setCarreraId("");
+                setComisiones({});
+              }}
+              disabled={isLoading}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar sede" />
               </SelectTrigger>
               <SelectContent>
-                {REGIMEN_SEDES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {SEDE_LABELS[s]}
+                {sedes.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {errors.sede && (
-              <p className="text-sm text-destructive">{errors.sede[0]}</p>
+            {errors.sedeId && (
+              <p className="text-sm text-destructive">{errors.sedeId[0]}</p>
             )}
           </div>
           <div className="space-y-2 sm:col-span-2">
@@ -219,13 +234,13 @@ export function RegimenForm({ carreras, asignaturas }: RegimenFormProps) {
             <Select
               value={carreraId}
               onValueChange={handleCarreraChange}
-              disabled={isLoading}
+              disabled={isLoading || !sedeId}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar carrera" />
               </SelectTrigger>
               <SelectContent>
-                {carreras.map((c) => (
+                {carrerasDeSede.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     <div className="flex items-center gap-2">
                       <div

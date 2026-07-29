@@ -18,6 +18,9 @@ type Carrera = {
   color: string;
 };
 
+// La lista para elegir carrera necesita saber en qué sedes se dicta cada una.
+type CarreraOption = Carrera & { sedeIds: string[] };
+
 type Asignatura = {
   id: string;
   name: string;
@@ -35,6 +38,8 @@ type Aula = {
   name: string;
   building: string;
   capacity: number | null;
+  sedeId: string;
+  sede: { id: string; name: string };
 };
 
 type Cursada = {
@@ -64,7 +69,7 @@ interface CursadasTableProps {
   data: Cursada[];
   selectedDate: Date;
   onDateChange: (date: Date) => void;
-  carreras: Carrera[];
+  carreras: CarreraOption[];
   asignaturas: Asignatura[];
   docentes: Docente[];
   aulas: Aula[];
@@ -162,7 +167,7 @@ export function CursadasTable({
         <div>
           <div>{row.original.aula.name}</div>
           <div className="text-xs text-muted-foreground">
-            {row.original.aula.building}
+            {row.original.aula.building} · {row.original.aula.sede.name}
           </div>
         </div>
       ),

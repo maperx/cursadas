@@ -5,75 +5,100 @@ import { DataTable } from "@/components/admin/data-table";
 import { CarreraDialog } from "./carrera-dialog";
 import { DeleteDialog } from "@/components/admin/delete-dialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
 import { deleteCarrera } from "@/actions/carreras";
+
+type Sede = {
+  id: string;
+  name: string;
+};
 
 type Carrera = {
   id: string;
   name: string;
   color: string;
   visible: boolean;
+  sedeIds: string[];
+  sedes: Sede[];
   createdAt: Date;
   updatedAt: Date;
 };
 
-const columns: ColumnDef<Carrera>[] = [
-  {
-    accessorKey: "name",
-    header: "Nombre",
-  },
-  {
-    accessorKey: "color",
-    header: "Color",
-    cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        <div
-          className="h-5 w-5 rounded border"
-          style={{ backgroundColor: row.original.color }}
-        />
-        <span className="text-sm text-muted-foreground">
-          {row.original.color}
-        </span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "visible",
-    header: "Visible",
-    cell: ({ row }) => (
-      row.original.visible
-        ? <Eye className="h-4 w-4 text-muted-foreground" />
-        : <EyeOff className="h-4 w-4 text-muted-foreground" />
-    ),
-  },
-  {
-    id: "actions",
-    cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        <CarreraDialog carrera={row.original}>
-          <Button variant="ghost" size="icon">
-            <Pencil className="h-4 w-4" />
-          </Button>
-        </CarreraDialog>
-        <DeleteDialog
-          title="Eliminar Carrera"
-          description={`¿Estás seguro de que deseas eliminar la carrera "${row.original.name}"? Esta acción no se puede deshacer.`}
-          onConfirm={() => deleteCarrera(row.original.id)}
-        >
-          <Button variant="ghost" size="icon">
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
-        </DeleteDialog>
-      </div>
-    ),
-  },
-];
-
 interface CarrerasTableProps {
   data: Carrera[];
+  sedes: Sede[];
 }
 
-export function CarrerasTable({ data }: CarrerasTableProps) {
+export function CarrerasTable({ data, sedes }: CarrerasTableProps) {
+  const columns: ColumnDef<Carrera>[] = [
+    {
+      accessorKey: "name",
+      header: "Nombre",
+    },
+    {
+      accessorKey: "color",
+      header: "Color",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <div
+            className="h-5 w-5 rounded border"
+            style={{ backgroundColor: row.original.color }}
+          />
+          <span className="text-sm text-muted-foreground">
+            {row.original.color}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: "sedes",
+      header: "Sedes",
+      cell: ({ row }) =>
+        row.original.sedes.length === 0 ? (
+          <span className="text-muted-foreground">-</span>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {row.original.sedes.map((sede) => (
+              <Badge key={sede.id} variant="outline">
+                {sede.name}
+              </Badge>
+            ))}
+          </div>
+        ),
+    },
+    {
+      accessorKey: "visible",
+      header: "Visible",
+      cell: ({ row }) => (
+        row.original.visible
+          ? <Eye className="h-4 w-4 text-muted-foreground" />
+          : <EyeOff className="h-4 w-4 text-muted-foreground" />
+      ),
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <CarreraDialog carrera={row.original} sedes={sedes}>
+            <Button variant="ghost" size="icon">
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </CarreraDialog>
+          <DeleteDialog
+            title="Eliminar Carrera"
+            description={`¿Estás seguro de que deseas eliminar la carrera "${row.original.name}"? Esta acción no se puede deshacer.`}
+            onConfirm={() => deleteCarrera(row.original.id)}
+          >
+            <Button variant="ghost" size="icon">
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </DeleteDialog>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <DataTable
       columns={columns}

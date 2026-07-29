@@ -33,7 +33,11 @@ export default async function MisCursadasPage() {
       commissionNumber: c.commissionNumber,
       asignatura: { name: c.asignatura.name },
       carrera: { name: c.carrera.name, color: c.carrera.color },
-      aula: { name: c.aula.name, building: c.aula.building },
+      aula: {
+        name: c.aula.name,
+        building: c.aula.building,
+        sede: { name: c.aula.sede.name },
+      },
     }));
 
   return (
@@ -69,7 +73,11 @@ export default async function MisCursadasPage() {
           notes: i.cursada.notes,
           asignatura: { name: i.cursada.asignatura.name },
           carrera: { name: i.cursada.carrera.name, color: i.cursada.carrera.color },
-          aula: { name: i.cursada.aula.name, building: i.cursada.aula.building },
+          aula: {
+            name: i.cursada.aula.name,
+            building: i.cursada.aula.building,
+            sede: { name: i.cursada.aula.sede.name },
+          },
           cursadaDocentes: i.cursada.cursadaDocentes.map((cd) => ({
             user: { name: cd.user.name },
           })),

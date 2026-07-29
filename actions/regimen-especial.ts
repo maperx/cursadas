@@ -21,7 +21,6 @@ import {
   MOTIVO_LABELS,
   REGIMEN_DOC_TIPOS,
   REGIMEN_MOTIVOS,
-  REGIMEN_SEDES,
   esCambioComision,
   motivoIncluyeLaboral,
   motivoIncluyePersonas,
@@ -42,7 +41,7 @@ const solicitudSchema = z.object({
   dni: z.string().min(1, "El DNI es requerido"),
   telefono: z.string().min(1, "El teléfono es requerido"),
   motivo: z.enum(REGIMEN_MOTIVOS),
-  sede: z.enum(REGIMEN_SEDES),
+  sedeId: z.string().uuid("Sede inválida"),
   carreraId: z.string().uuid("Carrera inválida"),
   observaciones: z.string().optional().nullable(),
   // Por cada asignatura marcada, la comisión en la que está inscripto.
@@ -69,6 +68,7 @@ export async function getMiSolicitudRegimen() {
     orderBy: (s, { desc }) => [desc(s.createdAt)],
     with: {
       carrera: true,
+      sede: true,
       documentos: true,
       asignaturas: { with: { asignatura: true } },
     },
@@ -82,6 +82,7 @@ export async function getSolicitudesRegimen() {
     with: {
       user: true,
       carrera: true,
+      sede: true,
       documentos: true,
       asignaturas: { with: { asignatura: true } },
     },
@@ -100,7 +101,7 @@ export async function createSolicitudRegimen(formData: FormData) {
     dni: (formData.get("dni") as string)?.trim(),
     telefono: (formData.get("telefono") as string)?.trim(),
     motivo: formData.get("motivo") as string,
-    sede: formData.get("sede") as string,
+    sedeId: formData.get("sedeId") as string,
     carreraId: formData.get("carreraId") as string,
     observaciones: (formData.get("observaciones") as string)?.trim() || null,
     asignaturas: asignaturasRaw ? JSON.parse(asignaturasRaw) : [],
@@ -174,7 +175,7 @@ export async function createSolicitudRegimen(formData: FormData) {
         dni: validated.data.dni,
         telefono: validated.data.telefono,
         motivo: validated.data.motivo,
-        sede: validated.data.sede,
+        sedeId: validated.data.sedeId,
         carreraId: validated.data.carreraId,
         observaciones: validated.data.observaciones,
       })

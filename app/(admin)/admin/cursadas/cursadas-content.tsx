@@ -20,6 +20,9 @@ type Carrera = {
   color: string;
 };
 
+// La lista para elegir carrera necesita saber en qué sedes se dicta cada una.
+type CarreraOption = Carrera & { sedeIds: string[] };
+
 type Asignatura = {
   id: string;
   name: string;
@@ -37,6 +40,8 @@ type Aula = {
   name: string;
   building: string;
   capacity: number | null;
+  sedeId: string;
+  sede: { id: string; name: string };
 };
 
 type Cursada = {
@@ -67,7 +72,7 @@ export type ViewMode = "table" | "weekly" | "daily" | "aulas";
 
 interface CursadasContentProps {
   cursadas: Cursada[];
-  carreras: Carrera[];
+  carreras: CarreraOption[];
   asignaturas: Asignatura[];
   docentes: Docente[];
   aulas: Aula[];
@@ -82,19 +87,47 @@ export function CursadasContent({
 }: CursadasContentProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [filterSede, setFilterSede] = useState<string>("all");
   const [filterCarrera, setFilterCarrera] = useState<string>("all");
   const [filterAula, setFilterAula] = useState<string>("all");
   const [filterExamen, setFilterExamen] = useState<string>("all");
 
+  const sedes = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    for (const aula of aulas) {
+      if (!map.has(aula.sedeId)) map.set(aula.sedeId, aula.sede);
+    }
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [aulas]);
+
+  // Con una sede elegida, carreras y aulas se acotan a esa sede.
+  const sedeCarreras = useMemo(
+    () =>
+      filterSede === "all"
+        ? carreras
+        : carreras.filter((c) => c.sedeIds.includes(filterSede)),
+    [carreras, filterSede]
+  );
+
+  const sedeAulas = useMemo(
+    () =>
+      filterSede === "all"
+        ? aulas
+        : aulas.filter((a) => a.sedeId === filterSede),
+    [aulas, filterSede]
+  );
+
   const filteredCursadas = useMemo(() => {
     return cursadas.filter((c) => {
+      // La sede de una cursada es la de su aula.
+      if (filterSede !== "all" && c.aula.sedeId !== filterSede) return false;
       if (filterCarrera !== "all" && c.carrera.name !== filterCarrera) return false;
       if (filterAula !== "all" && c.aula.name !== filterAula) return false;
       if (filterExamen === "examen" && !c.examen) return false;
       if (filterExamen === "cursada" && c.examen) return false;
       return true;
     });
-  }, [cursadas, filterCarrera, filterAula, filterExamen]);
+  }, [cursadas, filterSede, filterCarrera, filterAula, filterExamen]);
 
   return (
     <div className="space-y-6">
@@ -108,13 +141,33 @@ export function CursadasContent({
       />
 
       <div className="flex flex-wrap items-center gap-2">
+        <Select
+          value={filterSede}
+          onValueChange={(value) => {
+            setFilterSede(value);
+            setFilterCarrera("all");
+            setFilterAula("all");
+          }}
+        >
+          <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectValue placeholder="Todas las sedes" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las sedes</SelectItem>
+            {sedes.map((sede) => (
+              <SelectItem key={sede.id} value={sede.id}>
+                {sede.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={filterCarrera} onValueChange={setFilterCarrera}>
           <SelectTrigger className="w-full sm:w-[200px]">
             <SelectValue placeholder="Todas las carreras" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas las carreras</SelectItem>
-            {carreras.map((c) => (
+            {sedeCarreras.map((c) => (
               <SelectItem key={c.id} value={c.name}>
                 {c.name}
               </SelectItem>
@@ -127,7 +180,7 @@ export function CursadasContent({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas las aulas</SelectItem>
-            {aulas.map((a) => (
+            {sedeAulas.map((a) => (
               <SelectItem key={a.id} value={a.name}>
                 {a.name} ({a.building})
               </SelectItem>

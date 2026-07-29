@@ -13,15 +13,21 @@ import { Button } from "@/components/ui/button";
 import { X, LayoutGrid, CalendarDays, Play, Pause } from "lucide-react";
 
 interface ClassFiltersProps {
+  sedes: {
+    id: string;
+    name: string;
+  }[];
   carreras: {
     id: string;
     name: string;
     color: string;
+    sedeIds: string[];
   }[];
   aulas: {
     id: string;
     name: string;
     building: string;
+    sedeId: string;
   }[];
   asignaturas: {
     id: string;
@@ -42,6 +48,7 @@ const DAYS = [
 ];
 
 export function ClassFilters({
+  sedes,
   carreras,
   aulas,
   asignaturas,
@@ -51,16 +58,33 @@ export function ClassFilters({
   const searchParams = useSearchParams();
 
   const currentDay = searchParams.get("dia") ?? String(todayDayOfWeek);
+  const currentSede = searchParams.get("sede") || "";
   const currentCarrera = searchParams.get("carrera") || "";
   const currentAula = searchParams.get("aula") || "";
   const currentAsignatura = searchParams.get("asignatura") || "";
   const currentVista = searchParams.get("vista") || "grilla";
   const isSemanal = currentVista === "semanal";
 
+  // Cada sede tiene sus propias aulas y sus carreras.
+  const filteredCarreras = useMemo(() => {
+    if (!currentSede) return carreras;
+    return carreras.filter((c) => c.sedeIds.includes(currentSede));
+  }, [carreras, currentSede]);
+
+  const filteredAulas = useMemo(() => {
+    if (!currentSede) return aulas;
+    return aulas.filter((a) => a.sedeId === currentSede);
+  }, [aulas, currentSede]);
+
   const filteredAsignaturas = useMemo(() => {
-    if (!currentCarrera) return asignaturas;
-    return asignaturas.filter((a) => a.carreraId === currentCarrera);
-  }, [asignaturas, currentCarrera]);
+    const base = currentSede
+      ? asignaturas.filter((a) =>
+          filteredCarreras.some((c) => c.id === a.carreraId)
+        )
+      : asignaturas;
+    if (!currentCarrera) return base;
+    return base.filter((a) => a.carreraId === currentCarrera);
+  }, [asignaturas, currentCarrera, currentSede, filteredCarreras]);
 
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -68,6 +92,12 @@ export function ClassFilters({
       params.set(key, value);
     } else {
       params.delete(key);
+    }
+    // Al cambiar de sede, se descartan los filtros que ya no pertenecen a ella
+    if (key === "sede") {
+      params.delete("carrera");
+      params.delete("asignatura");
+      params.delete("aula");
     }
     // If changing carrera, clear asignatura if it no longer belongs
     if (key === "carrera" && currentAsignatura) {
@@ -117,6 +147,7 @@ export function ClassFilters({
 
   const hasFilters =
     searchParams.get("dia") !== null ||
+    currentSede ||
     currentCarrera ||
     currentAula ||
     currentAsignatura ||
@@ -184,6 +215,19 @@ export function ClassFilters({
         </Select>
       )}
 
+      <Select value={currentSede} onValueChange={(v) => updateFilter("sede", v)}>
+        <SelectTrigger className="w-full sm:w-44">
+          <SelectValue placeholder="Sede" />
+        </SelectTrigger>
+        <SelectContent>
+          {sedes.map((sede) => (
+            <SelectItem key={sede.id} value={sede.id}>
+              {sede.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
       <Select
         value={currentCarrera}
         onValueChange={(v) => updateFilter("carrera", v)}
@@ -192,7 +236,7 @@ export function ClassFilters({
           <SelectValue placeholder="Carrera" />
         </SelectTrigger>
         <SelectContent>
-          {carreras.map((carrera) => (
+          {filteredCarreras.map((carrera) => (
             <SelectItem key={carrera.id} value={carrera.id}>
               <div className="flex items-center gap-2">
                 <div
@@ -230,7 +274,7 @@ export function ClassFilters({
           <SelectValue placeholder="Aula" />
         </SelectTrigger>
         <SelectContent>
-          {aulas.map((aula) => (
+          {filteredAulas.map((aula) => (
             <SelectItem key={aula.id} value={aula.id}>
               {aula.name} - {aula.building}
             </SelectItem>

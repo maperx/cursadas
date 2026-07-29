@@ -17,23 +17,41 @@ import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/use-toast";
 import { createCarrera, updateCarrera } from "@/actions/carreras";
 
+type Sede = {
+  id: string;
+  name: string;
+};
+
 interface CarreraDialogProps {
   children: React.ReactNode;
+  sedes: Sede[];
   carrera?: {
     id: string;
     name: string;
     color: string;
     visible: boolean;
+    sedeIds: string[];
   };
 }
 
-export function CarreraDialog({ children, carrera }: CarreraDialogProps) {
+export function CarreraDialog({ children, sedes, carrera }: CarreraDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [color, setColor] = useState(carrera?.color || "#3B82F6");
   const [visible, setVisible] = useState(carrera?.visible ?? true);
+  const [selectedSedes, setSelectedSedes] = useState<string[]>(
+    carrera?.sedeIds ?? []
+  );
+
+  const toggleSede = (sedeId: string) => {
+    setSelectedSedes((prev) =>
+      prev.includes(sedeId)
+        ? prev.filter((id) => id !== sedeId)
+        : [...prev, sedeId]
+    );
+  };
 
   const isEditing = !!carrera;
 
@@ -43,6 +61,7 @@ export function CarreraDialog({ children, carrera }: CarreraDialogProps) {
     setErrors({});
 
     const formData = new FormData(e.currentTarget);
+    formData.set("sedeIds", JSON.stringify(selectedSedes));
     const result = isEditing
       ? await updateCarrera(carrera.id, formData)
       : await createCarrera(formData);
@@ -110,6 +129,36 @@ export function CarreraDialog({ children, carrera }: CarreraDialogProps) {
             </div>
             {errors.color && (
               <p className="text-sm text-destructive">{errors.color[0]}</p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>Sedes en las que se dicta</Label>
+            <div className="max-h-40 space-y-2 overflow-y-auto rounded-md border p-3">
+              {sedes.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No hay sedes cargadas
+                </p>
+              ) : (
+                sedes.map((sede) => (
+                  <div key={sede.id} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`sede-${sede.id}`}
+                      checked={selectedSedes.includes(sede.id)}
+                      onCheckedChange={() => toggleSede(sede.id)}
+                      disabled={isLoading}
+                    />
+                    <label
+                      htmlFor={`sede-${sede.id}`}
+                      className="cursor-pointer text-sm"
+                    >
+                      {sede.name}
+                    </label>
+                  </div>
+                ))
+              )}
+            </div>
+            {errors.sedeIds && (
+              <p className="text-sm text-destructive">{errors.sedeIds[0]}</p>
             )}
           </div>
           <div className="flex items-center gap-2">

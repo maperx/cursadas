@@ -2,6 +2,8 @@ import "dotenv/config";
 import { db } from "./index";
 import {
   user,
+  sedes,
+  carreraSedes,
   carreras,
   aulas,
   asignaturas,
@@ -13,6 +15,20 @@ import {
 async function seed() {
   console.log("Seeding database...");
 
+  // Create Sedes
+  const [sede1, sede2] = await db
+    .insert(sedes)
+    .values([
+      { name: "Paraná", address: "Av. Ramírez 1143" },
+      { name: "Ramírez" },
+      { name: "Gualeguay" },
+      { name: "Villaguay" },
+      { name: "Concordia" },
+    ])
+    .returning();
+
+  console.log("Created sedes");
+
   // Create Carreras
   const [carrera1, carrera2, carrera3] = await db
     .insert(carreras)
@@ -22,6 +38,14 @@ async function seed() {
       { name: "Contador Público", color: "#F59E0B" },
     ])
     .returning();
+
+  // Sistemas se dicta en dos sedes; las demás solo en Paraná.
+  await db.insert(carreraSedes).values([
+    { carreraId: carrera1.id, sedeId: sede1.id },
+    { carreraId: carrera1.id, sedeId: sede2.id },
+    { carreraId: carrera2.id, sedeId: sede1.id },
+    { carreraId: carrera3.id, sedeId: sede1.id },
+  ]);
 
   console.log("Created carreras");
 
@@ -51,10 +75,11 @@ async function seed() {
   const [aula1, aula2, aula3, aula4] = await db
     .insert(aulas)
     .values([
-      { name: "Aula 101", building: "Edificio A", capacity: 40 },
-      { name: "Aula 102", building: "Edificio A", capacity: 30 },
-      { name: "Laboratorio 1", building: "Edificio B", capacity: 25 },
-      { name: "Aula Magna", building: "Edificio Central", capacity: 200 },
+      { name: "Aula 101", building: "Edificio A", capacity: 40, sedeId: sede1.id },
+      { name: "Aula 102", building: "Edificio A", capacity: 30, sedeId: sede1.id },
+      // Laboratorio 1 está en Ramírez: solo Sistemas se dicta en esa sede.
+      { name: "Laboratorio 1", building: "Edificio B", capacity: 25, sedeId: sede2.id },
+      { name: "Aula Magna", building: "Edificio Central", capacity: 200, sedeId: sede1.id },
     ])
     .returning();
 

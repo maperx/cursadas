@@ -26,13 +26,11 @@ import {
   DOC_TIPO_LABELS,
   ESTADO_LABELS,
   MOTIVO_LABELS,
-  SEDE_LABELS,
   esCambioComision,
   type RegimenCambioEstado,
   type RegimenDocTipo,
   type RegimenEstado,
   type RegimenMotivo,
-  type RegimenSede,
 } from "@/lib/regimen-especial";
 
 export type Solicitud = {
@@ -42,7 +40,7 @@ export type Solicitud = {
   dni: string;
   telefono: string;
   motivo: RegimenMotivo;
-  sede: RegimenSede;
+  sede: { name: string };
   estado: RegimenEstado;
   observaciones: string | null;
   observacionesRevision: string | null;
@@ -196,7 +194,7 @@ export function RegimenReviewDialog({
             <Field label="DNI" value={solicitud.dni} />
             <Field label="Teléfono" value={solicitud.telefono} />
             <Field label="Motivo" value={MOTIVO_LABELS[solicitud.motivo]} />
-            <Field label="Sede" value={SEDE_LABELS[solicitud.sede]} />
+            <Field label="Sede" value={solicitud.sede.name} />
             <Field label="Carrera" value={solicitud.carrera.name} />
           </div>
 

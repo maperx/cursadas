@@ -41,6 +41,7 @@ type Inscripcion = {
     aula: {
       name: string;
       building: string;
+      sede: { name: string };
     };
     cursadaDocentes: {
       user: {
@@ -143,7 +144,8 @@ function InscripcionCard({
           <div className="flex items-center gap-2 text-sm">
             <MapPin className="h-4 w-4 text-muted-foreground" />
             <span>
-              {cursada.aula.name} - {cursada.aula.building}
+              {cursada.aula.name} - {cursada.aula.building} ·{" "}
+              {cursada.aula.sede.name}
             </span>
           </div>
 

@@ -26,6 +26,7 @@ interface ClassCardProps {
     aula: {
       name: string;
       building: string;
+      sede: { name: string };
     };
     cursadaDocentes: {
       user: {
@@ -117,6 +118,10 @@ export function ClassCard({ cursada, index = 0 }: ClassCardProps) {
             <MapPin className="h-4 w-4 text-muted-foreground" />
             <span>
               {cursada.aula.name} - {cursada.aula.building}
+              <span className="text-muted-foreground">
+                {" "}
+                · {cursada.aula.sede.name}
+              </span>
             </span>
           </div>
 

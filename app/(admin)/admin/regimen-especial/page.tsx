@@ -14,7 +14,7 @@ export default async function RegimenEspecialAdminPage() {
     dni: s.dni,
     telefono: s.telefono,
     motivo: s.motivo,
-    sede: s.sede,
+    sede: { name: s.sede.name },
     estado: s.estado,
     observaciones: s.observaciones,
     observacionesRevision: s.observacionesRevision,

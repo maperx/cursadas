@@ -32,6 +32,9 @@ type Carrera = {
   color: string;
 };
 
+// La lista para elegir carrera necesita saber en qué sedes se dicta cada una.
+type CarreraOption = Carrera & { sedeIds: string[] };
+
 type Asignatura = {
   id: string;
   name: string;
@@ -49,11 +52,13 @@ type Aula = {
   name: string;
   building: string;
   capacity: number | null;
+  sedeId: string;
+  sede: { id: string; name: string };
 };
 
 interface CursadaDialogProps {
   children: React.ReactNode;
-  carreras: Carrera[];
+  carreras: CarreraOption[];
   asignaturas: Asignatura[];
   docentes: Docente[];
   aulas: Aula[];
@@ -99,6 +104,11 @@ export function CursadaDialog({
   const [warningMessages, setWarningMessages] = useState<string[] | null>(null);
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
 
+  // La sede no se guarda en la cursada: es la del aula elegida. Acá se usa
+  // para acotar carreras y aulas a las de esa sede.
+  const [selectedSede, setSelectedSede] = useState(
+    cursada ? (aulas.find((a) => a.id === cursada.aulaId)?.sedeId ?? "") : ""
+  );
   const [selectedCarrera, setSelectedCarrera] = useState(cursada?.carreraId || "");
   const [selectedAsignatura, setSelectedAsignatura] = useState(cursada?.asignaturaId || "");
   const [selectedAula, setSelectedAula] = useState(cursada?.aulaId || "");
@@ -139,6 +149,26 @@ export function CursadaDialog({
     if (!selectedCarrera) return asignaturas;
     return asignaturas.filter((a) => a.carreraId === selectedCarrera);
   }, [selectedCarrera, asignaturas]);
+
+  const sedes = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    for (const aula of aulas) {
+      if (!map.has(aula.sedeId)) map.set(aula.sedeId, aula.sede);
+    }
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [aulas]);
+
+  // Solo las carreras que se dictan en la sede elegida.
+  const filteredCarreras = useMemo(() => {
+    if (!selectedSede) return carreras;
+    return carreras.filter((c) => c.sedeIds.includes(selectedSede));
+  }, [carreras, selectedSede]);
+
+  // Cada sede tiene sus propias aulas.
+  const filteredAulas = useMemo(() => {
+    if (!selectedSede) return aulas;
+    return aulas.filter((a) => a.sedeId === selectedSede);
+  }, [aulas, selectedSede]);
 
   const buildFormData = (form: HTMLFormElement): FormData => {
     const formData = new FormData(form);
@@ -283,6 +313,37 @@ export function CursadaDialog({
               <p className="text-sm text-destructive font-medium">{errors._form[0]}</p>
             </div>
           )}
+          <div className="space-y-2">
+            <Label>Sede</Label>
+            <Select
+              value={selectedSede}
+              onValueChange={(value) => {
+                setSelectedSede(value);
+                // Carrera y aula dependen de la sede.
+                setSelectedCarrera("");
+                setSelectedAsignatura("");
+                setSelectedAula("");
+              }}
+              disabled={isLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar sede" />
+              </SelectTrigger>
+              <SelectContent>
+                {sedes.map((sede) => (
+                  <SelectItem key={sede.id} value={sede.id}>
+                    {sede.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {sedes.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No hay aulas cargadas. Creá una sede y sus aulas primero.
+              </p>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Carrera</Label>
@@ -292,13 +353,13 @@ export function CursadaDialog({
                   setSelectedCarrera(value);
                   setSelectedAsignatura("");
                 }}
-                disabled={isLoading}
+                disabled={isLoading || !selectedSede}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar carrera" />
                 </SelectTrigger>
                 <SelectContent>
-                  {carreras.map((carrera) => (
+                  {filteredCarreras.map((carrera) => (
                     <SelectItem key={carrera.id} value={carrera.id}>
                       <div className="flex items-center gap-2">
                         <div
@@ -346,13 +407,13 @@ export function CursadaDialog({
               <Select
                 value={selectedAula}
                 onValueChange={setSelectedAula}
-                disabled={isLoading}
+                disabled={isLoading || !selectedSede}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar aula" />
                 </SelectTrigger>
                 <SelectContent>
-                  {aulas.map((aula) => (
+                  {filteredAulas.map((aula) => (
                     <SelectItem key={aula.id} value={aula.id}>
                       {aula.name} - {aula.building}
                       {aula.capacity && ` (${aula.capacity} pers.)`}

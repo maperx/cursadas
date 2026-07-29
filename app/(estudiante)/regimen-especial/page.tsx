@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth-server";
 import { getMiSolicitudRegimen } from "@/actions/regimen-especial";
 import { getCarreras } from "@/actions/carreras";
+import { getSedes } from "@/actions/sedes";
 import { getAsignaturas } from "@/actions/asignaturas";
 import { RegimenForm } from "./regimen-form";
 import { RegimenEstado } from "./regimen-estado";
@@ -43,14 +44,23 @@ export default async function RegimenEspecialPage() {
     );
   }
 
-  const [carrerasRaw, asignaturasRaw] = await Promise.all([
+  const [carrerasRaw, asignaturasRaw, sedesRaw] = await Promise.all([
     getCarreras(),
     getAsignaturas(),
+    getSedes(),
   ]);
 
+  const sedes = sedesRaw
+    .filter((s) => s.visible)
+    .map((s) => ({ id: s.id, name: s.name }));
   const carreras = carrerasRaw
     .filter((c) => c.visible)
-    .map((c) => ({ id: c.id, name: c.name, color: c.color }));
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      color: c.color,
+      sedeIds: c.sedeIds,
+    }));
   const asignaturas = asignaturasRaw
     .filter((a) => a.visible)
     .map((a) => ({ id: a.id, name: a.name, carreraId: a.carreraId }));
@@ -67,7 +77,11 @@ export default async function RegimenEspecialPage() {
         </>
       )}
 
-      <RegimenForm carreras={carreras} asignaturas={asignaturas} />
+      <RegimenForm
+        sedes={sedes}
+        carreras={carreras}
+        asignaturas={asignaturas}
+      />
     </div>
   );
 }

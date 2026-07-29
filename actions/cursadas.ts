@@ -7,6 +7,8 @@ import {
   cursadaDocentes,
   cursadaSuspensiones,
   asignaturas,
+  aulas,
+  carreraSedes,
 } from "@/lib/db/schema";
 import { eq, and, ne } from "drizzle-orm";
 import { z } from "zod";
@@ -45,7 +47,7 @@ const cursadaSchema = z.object({
 export async function getCursadas() {
   return await db.query.cursadas.findMany({
     with: {
-      aula: true,
+      aula: { with: { sede: true } },
       carrera: true,
       asignatura: {
         with: { recesos: true },
@@ -65,7 +67,7 @@ export async function getCursada(id: string) {
   return await db.query.cursadas.findFirst({
     where: eq(cursadas.id, id),
     with: {
-      aula: true,
+      aula: { with: { sede: true } },
       carrera: true,
       asignatura: {
         with: { recesos: true },
@@ -86,7 +88,7 @@ export async function getCursadasByDocente(userId: string) {
     with: {
       cursada: {
         with: {
-          aula: true,
+          aula: { with: { sede: true } },
           carrera: true,
           asignatura: { with: { recesos: true } },
           cursadaDocentes: { with: { user: true } },
@@ -102,7 +104,7 @@ export async function getCursadasByDay(dayOfWeek: number) {
   // Get all cursadas that include the specified day
   const allCursadas = await db.query.cursadas.findMany({
     with: {
-      aula: true,
+      aula: { with: { sede: true } },
       carrera: true,
       asignatura: { with: { recesos: true } },
       cursadaDocentes: {
@@ -166,6 +168,7 @@ export async function hasExamenesForDay(dayOfWeek: number): Promise<boolean> {
 
 export async function getCursadasByFilters(filters: {
   dayOfWeek?: number;
+  sedeId?: string;
   carreraId?: string;
   asignaturaId?: string;
   aulaId?: string;
@@ -173,7 +176,7 @@ export async function getCursadasByFilters(filters: {
 }) {
   const allCursadas = await db.query.cursadas.findMany({
     with: {
-      aula: true,
+      aula: { with: { sede: true } },
       carrera: true,
       asignatura: { with: { recesos: true } },
       cursadaDocentes: {
@@ -210,6 +213,8 @@ export async function getCursadasByFilters(filters: {
         if (eventDayOfWeek !== filters.dayOfWeek) return false;
       }
     }
+    // La sede de una cursada es la de su aula.
+    if (filters.sedeId && cursada.aula.sedeId !== filters.sedeId) return false;
     if (filters.carreraId && cursada.carreraId !== filters.carreraId) return false;
     if (filters.asignaturaId && cursada.asignaturaId !== filters.asignaturaId) return false;
     if (filters.aulaId && cursada.aulaId !== filters.aulaId) return false;
@@ -321,6 +326,32 @@ function getDayOfWeekFromDate(dateStr: string): number {
   return new Date(y, m - 1, d).getDay();
 }
 
+/**
+ * La sede de una cursada es la del aula elegida: la carrera tiene que dictarse
+ * en esa sede. Devuelve el mensaje de error, o null si es válida.
+ */
+async function checkCarreraEnSedeDelAula(
+  aulaId: string,
+  carreraId: string
+): Promise<string | null> {
+  const aula = await db.query.aulas.findFirst({
+    where: eq(aulas.id, aulaId),
+    with: { sede: true },
+  });
+  if (!aula) return "El aula seleccionada no existe";
+
+  const enSede = await db.query.carreraSedes.findFirst({
+    where: and(
+      eq(carreraSedes.carreraId, carreraId),
+      eq(carreraSedes.sedeId, aula.sedeId)
+    ),
+  });
+  if (!enSede) {
+    return `La carrera seleccionada no se dicta en la sede ${aula.sede.name}`;
+  }
+  return null;
+}
+
 async function checkAulaConflict(
   aulaId: string,
   daysOfWeek: number[],
@@ -344,7 +375,7 @@ async function checkAulaConflict(
       : eq(cursadas.aulaId, aulaId),
     with: {
       asignatura: { with: { recesos: true } },
-      aula: true,
+      aula: { with: { sede: true } },
     },
   });
 
@@ -455,6 +486,14 @@ export async function createCursada(formData: FormData) {
     return { error: validated.error.flatten().fieldErrors };
   }
 
+  const sedeError = await checkCarreraEnSedeDelAula(
+    validated.data.aulaId,
+    validated.data.carreraId
+  );
+  if (sedeError) {
+    return { error: { _form: [sedeError] } };
+  }
+
   if (!skipConflictCheck) {
     const { error: conflict, warnings } = await checkAulaConflict(
       validated.data.aulaId,
@@ -527,6 +566,14 @@ export async function updateCursada(id: string, formData: FormData) {
   const validated = cursadaSchema.safeParse(data);
   if (!validated.success) {
     return { error: validated.error.flatten().fieldErrors };
+  }
+
+  const sedeError = await checkCarreraEnSedeDelAula(
+    validated.data.aulaId,
+    validated.data.carreraId
+  );
+  if (sedeError) {
+    return { error: { _form: [sedeError] } };
   }
 
   if (!skipConflictCheck) {

@@ -30,7 +30,11 @@ export default async function MisCatedrasPage() {
         notes: c.notes,
         asignatura: { name: c.asignatura.name },
         carrera: { name: c.carrera.name, color: c.carrera.color },
-        aula: { name: c.aula.name, building: c.aula.building },
+        aula: {
+          name: c.aula.name,
+          building: c.aula.building,
+          sede: { name: c.aula.sede.name },
+        },
         cursadaDocentes: c.cursadaDocentes.map((cd) => ({
           user: { id: cd.user.id, name: cd.user.name },
         })),

@@ -6,11 +6,9 @@ import {
   DOC_TIPO_LABELS,
   ESTADO_LABELS,
   MOTIVO_LABELS,
-  SEDE_LABELS,
   type RegimenDocTipo,
   type RegimenEstado,
   type RegimenMotivo,
-  type RegimenSede,
 } from "@/lib/regimen-especial";
 
 type SolicitudEstado = {
@@ -20,7 +18,7 @@ type SolicitudEstado = {
   dni: string;
   telefono: string;
   motivo: RegimenMotivo;
-  sede: RegimenSede;
+  sede: { name: string };
   carrera: { name: string; color: string };
   observaciones: string | null;
   observacionesRevision: string | null;
@@ -95,7 +93,7 @@ export function RegimenEstado({ solicitud }: { solicitud: SolicitudEstado }) {
         <Field label="DNI" value={solicitud.dni} />
         <Field label="Teléfono" value={solicitud.telefono} />
         <Field label="Motivo" value={MOTIVO_LABELS[solicitud.motivo]} />
-        <Field label="Sede" value={SEDE_LABELS[solicitud.sede]} />
+        <Field label="Sede" value={solicitud.sede.name} />
         <Field label="Carrera" value={solicitud.carrera.name} />
       </div>
 

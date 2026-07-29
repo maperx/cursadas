@@ -3,6 +3,7 @@ export * from "./auth";
 export * from "./user-relations";
 
 // Business tables
+export * from "./sedes";
 export * from "./carreras";
 export * from "./asignaturas";
 export * from "./aulas";
