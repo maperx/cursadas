@@ -27,6 +27,7 @@ import {
   ESTADO_LABELS,
   MOTIVO_LABELS,
   esCambioComision,
+  resumenCambiosComision,
   type RegimenCambioEstado,
   type RegimenDocTipo,
   type RegimenEstado,
@@ -96,6 +97,7 @@ export function RegimenReviewDialog({
   const [cambioLoadingId, setCambioLoadingId] = useState<string | null>(null);
 
   const cambiosComision = solicitud.asignaturas.filter(esCambioComision);
+  const resumen = resumenCambiosComision(solicitud);
 
   const handleCambioComision = async (
     asignaturaId: string,
@@ -262,7 +264,17 @@ export function RegimenReviewDialog({
 
           {solicitud.estado === "aprobada" && (
             <div className="space-y-3 rounded-md border p-3">
-              <p className="text-sm font-medium">Cambio de comisión</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-medium">Cambio de comisión</p>
+                {resumen.pedidos > 0 && (
+                  <Badge
+                    variant={resumen.pendientes > 0 ? "warning" : "success"}
+                    className="tabular-nums"
+                  >
+                    {resumen.aprobados}/{resumen.pedidos} aprobados
+                  </Badge>
+                )}
+              </div>
 
               {cambiosComision.length === 0 ? (
                 <p className="text-sm text-muted-foreground">

@@ -85,6 +85,55 @@ export function esCambioComision(a: {
   return Boolean(a.comisionDeseada) && a.comisionDeseada !== a.comisionActual;
 }
 
+export type AsignaturaCambio = {
+  comisionActual: string | null;
+  comisionDeseada: string | null;
+  comisionEstado: RegimenCambioEstado;
+};
+
+export type ResumenCambios = {
+  /** Cambios pedidos por el estudiante (aprobados + pendientes). */
+  pedidos: number;
+  aprobados: number;
+  pendientes: number;
+};
+
+// Resumen de los cambios de comisión de UNA solicitud. El sub-flujo solo existe
+// para las solicitudes aprobadas, así que las demás cuentan cero aunque tengan
+// datos cargados (p. ej. una solicitud reabierta y luego rechazada).
+export function resumenCambiosComision(solicitud: {
+  estado: RegimenEstado;
+  asignaturas: AsignaturaCambio[];
+}): ResumenCambios {
+  if (solicitud.estado !== "aprobada") {
+    return { pedidos: 0, aprobados: 0, pendientes: 0 };
+  }
+  const cambios = solicitud.asignaturas.filter(esCambioComision);
+  const aprobados = cambios.filter(
+    (a) => a.comisionEstado === "aprobado"
+  ).length;
+  return {
+    pedidos: cambios.length,
+    aprobados,
+    pendientes: cambios.length - aprobados,
+  };
+}
+
+// Categorías para filtrar el listado del admin por el estado de los cambios.
+export const CAMBIOS_FILTROS = ["pendientes", "aprobados", "sin"] as const;
+export type CambiosFiltro = (typeof CAMBIOS_FILTROS)[number];
+
+export const CAMBIOS_FILTRO_LABELS: Record<CambiosFiltro, string> = {
+  pendientes: "Con cambios pendientes",
+  aprobados: "Con cambios aprobados",
+  sin: "Sin cambios de comisión",
+};
+
+export function cambiosFiltro(resumen: ResumenCambios): CambiosFiltro {
+  if (resumen.pedidos === 0) return "sin";
+  return resumen.pendientes > 0 ? "pendientes" : "aprobados";
+}
+
 export function motivoIncluyeLaboral(motivo: RegimenMotivo): boolean {
   return motivo === "laboral" || motivo === "ambos";
 }

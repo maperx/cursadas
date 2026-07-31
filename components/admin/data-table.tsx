@@ -51,6 +51,12 @@ interface DataTableProps<TData> {
   searchColumn?: string;
   searchPlaceholder?: string;
   filters?: Filter[];
+  /**
+   * Filtros controlados desde afuera (p. ej. un resumen clickeable que aplica
+   * un filtro). Si no se pasan, la tabla los maneja internamente.
+   */
+  columnFilters?: ColumnFiltersState;
+  onColumnFiltersChange?: OnChangeFn<ColumnFiltersState>;
   enableRowSelection?: boolean;
   getRowId?: (row: TData) => string;
   renderToolbar?: (args: {
@@ -65,12 +71,17 @@ export function DataTable<TData>({
   searchColumn,
   searchPlaceholder = "Buscar...",
   filters,
+  columnFilters: controlledColumnFilters,
+  onColumnFiltersChange,
   enableRowSelection,
   getRowId,
   renderToolbar,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [internalColumnFilters, setInternalColumnFilters] =
+    useState<ColumnFiltersState>([]);
+  const columnFilters = controlledColumnFilters ?? internalColumnFilters;
+  const setColumnFilters = onColumnFiltersChange ?? setInternalColumnFilters;
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -80,11 +91,13 @@ export function DataTable<TData>({
   // When the user changes a search/filter, go back to the first page (expected
   // UX). Pagination is controlled and autoResetPageIndex is disabled so that a
   // data refresh (e.g. router.refresh() after editing a row) keeps the current
-  // page instead of jumping back to page 1.
-  const handleColumnFiltersChange: OnChangeFn<ColumnFiltersState> = (updater) => {
-    setColumnFilters(updater);
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-  };
+  // page instead of jumping back to page 1. Se observa el estado (y no el
+  // handler) para cubrir también los filtros aplicados desde afuera.
+  useEffect(() => {
+    setPagination((prev) =>
+      prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }
+    );
+  }, [columnFilters]);
 
   const table = useReactTable({
     data,
@@ -94,7 +107,7 @@ export function DataTable<TData>({
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
-    onColumnFiltersChange: handleColumnFiltersChange,
+    onColumnFiltersChange: setColumnFilters,
     onRowSelectionChange: setRowSelection,
     onPaginationChange: setPagination,
     autoResetPageIndex: false,

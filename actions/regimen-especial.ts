@@ -13,6 +13,7 @@ import {
 import { requireAuth, requirePermission } from "@/lib/auth-server";
 import { sendEmail } from "@/lib/email";
 import {
+  CAMBIO_ESTADO_LABELS,
   DOC_GENERALES,
   DOC_LABORALES,
   DOC_PERSONAS,
@@ -25,6 +26,7 @@ import {
   motivoIncluyeLaboral,
   motivoIncluyePersonas,
   type RegimenDocTipo,
+  type RegimenEstado,
 } from "@/lib/regimen-especial";
 
 const documentoInputSchema = z.object({
@@ -578,6 +580,89 @@ export async function getReporteCambiosComision(): Promise<ReporteCambiosComisio
     porCarrera,
     porAsignatura,
   };
+}
+
+// --- Listado de cambios de comisión (para exportar a Excel) ---
+
+export type CambioComisionRow = {
+  apellidos: string;
+  nombres: string;
+  dni: string;
+  telefono: string;
+  email: string;
+  sede: string;
+  carrera: string;
+  asignatura: string;
+  comisionActual: string;
+  comisionDeseada: string;
+  estadoCambio: string;
+  fechaSolicitud: Date;
+  fechaAprobacionCambio: Date | null;
+};
+
+/** Mismos filtros que ofrece la tabla del admin (se aplican al exportar). */
+export type CambiosComisionFiltros = {
+  estado?: RegimenEstado | null;
+  /** Nombre de la sede, tal como se muestra en el filtro de la tabla. */
+  sede?: string | null;
+};
+
+// Una fila por (estudiante, asignatura) con cambio de comisión pedido, ordenada
+// por estudiante (apellidos, nombres, DNI) y dentro de cada uno por asignatura.
+export async function getCambiosComisionListado(
+  filtros: CambiosComisionFiltros = {}
+): Promise<CambioComisionRow[]> {
+  await requirePermission("regimen", "view");
+
+  // Los cambios de comisión solo existen en las solicitudes aprobadas: si la
+  // tabla está filtrada por otro estado, no hay nada para exportar.
+  if (filtros.estado && filtros.estado !== "aprobada") return [];
+
+  const sede = filtros.sede?.trim() || null;
+
+  const solicitudes = await db.query.regimenSolicitudes.findMany({
+    where: eq(regimenSolicitudes.estado, "aprobada"),
+    with: {
+      user: { columns: { email: true } },
+      carrera: { columns: { name: true } },
+      sede: { columns: { name: true } },
+      asignaturas: { with: { asignatura: { columns: { name: true } } } },
+    },
+  });
+
+  const rows: CambioComisionRow[] = [];
+
+  for (const s of solicitudes) {
+    if (sede && s.sede.name !== sede) continue;
+    for (const a of s.asignaturas.filter(esCambioComision)) {
+      rows.push({
+        apellidos: s.apellidos,
+        nombres: s.nombres,
+        dni: s.dni,
+        telefono: s.telefono,
+        email: s.user.email,
+        sede: s.sede.name,
+        carrera: s.carrera.name,
+        asignatura: a.asignatura.name,
+        comisionActual: a.comisionActual ?? "",
+        comisionDeseada: a.comisionDeseada ?? "",
+        estadoCambio: CAMBIO_ESTADO_LABELS[a.comisionEstado],
+        fechaSolicitud: s.createdAt,
+        fechaAprobacionCambio: a.comisionAprobadoAt,
+      });
+    }
+  }
+
+  const cmp = (a: string, b: string) => a.localeCompare(b, "es");
+  rows.sort(
+    (x, y) =>
+      cmp(x.apellidos, y.apellidos) ||
+      cmp(x.nombres, y.nombres) ||
+      cmp(x.dni, y.dni) ||
+      cmp(x.asignatura, y.asignatura)
+  );
+
+  return rows;
 }
 
 async function sendRegimenDecisionEmail({

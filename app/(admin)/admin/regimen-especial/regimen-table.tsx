@@ -1,20 +1,33 @@
 "use client";
 
-import { ColumnDef } from "@tanstack/react-table";
+import { useMemo, useState } from "react";
+import { ColumnDef, ColumnFiltersState } from "@tanstack/react-table";
 import { DataTable } from "@/components/admin/data-table";
 import { DeleteDialog } from "@/components/admin/delete-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Trash2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  Eye,
+  FileSpreadsheet,
+  Trash2,
+} from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { deleteSolicitudRegimen } from "@/actions/regimen-especial";
 import {
+  CAMBIOS_FILTROS,
+  CAMBIOS_FILTRO_LABELS,
   ESTADO_LABELS,
   MOTIVO_LABELS,
   REGIMEN_ESTADOS,
+  cambiosFiltro,
+  resumenCambiosComision,
+  type CambiosFiltro,
   type RegimenEstado,
 } from "@/lib/regimen-especial";
+import { CambiosProgreso, type ProgresoCambios } from "./cambios-progreso";
 import { RegimenReviewDialog, type Solicitud } from "./regimen-review-dialog";
 
 const ESTADO_VARIANT: Record<
@@ -91,6 +104,37 @@ function buildColumns(perms: RegimenPerms): ColumnDef<Solicitud>[] {
       ),
     },
     {
+      id: "cambios",
+      // El valor accesorio es la categoría del filtro; la celda muestra el
+      // avance (aprobados sobre pedidos).
+      accessorFn: (row) => cambiosFiltro(resumenCambiosComision(row)),
+      filterFn: "equalsString",
+      header: "Cambios com.",
+      cell: ({ row }) => {
+        const resumen = resumenCambiosComision(row.original);
+        if (resumen.pedidos === 0) {
+          return <span className="text-muted-foreground">—</span>;
+        }
+        const hayPendientes = resumen.pendientes > 0;
+        return (
+          <Badge
+            variant={hayPendientes ? "warning" : "success"}
+            className="gap-1"
+            title={`${resumen.aprobados} de ${resumen.pedidos} cambios aprobados · ${resumen.pendientes} pendiente(s) de aprobación`}
+          >
+            {hayPendientes ? (
+              <Clock className="h-3 w-3" />
+            ) : (
+              <CheckCircle2 className="h-3 w-3" />
+            )}
+            <span className="tabular-nums">
+              {resumen.aprobados}/{resumen.pedidos}
+            </span>
+          </Badge>
+        );
+      },
+    },
+    {
       id: "fecha",
       header: "Fecha",
       cell: ({ row }) =>
@@ -130,31 +174,150 @@ interface RegimenTableProps extends RegimenPerms {
   data: Solicitud[];
 }
 
-export function RegimenTable({ data, ...perms }: RegimenTableProps) {
+export function RegimenTable({
+  data,
+  canDelete,
+  canResolverSolicitudes,
+  canResolverCambios,
+}: RegimenTableProps) {
   // Las sedes del filtro salen de las solicitudes cargadas.
   const sedes = [...new Set(data.map((s) => s.sede.name))].sort();
 
+  const columns = useMemo(
+    () =>
+      buildColumns({
+        canDelete,
+        canResolverSolicitudes,
+        canResolverCambios,
+      }),
+    [canDelete, canResolverSolicitudes, canResolverCambios]
+  );
+
+  // Los filtros se manejan acá (y no dentro de DataTable) para que el resumen
+  // de progreso pueda aplicar el filtro de cambios con un click.
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const filtroCambios = columnFilters.find((f) => f.id === "cambios")?.value as
+    | CambiosFiltro
+    | undefined;
+
+  const setFiltroCambios = (value: CambiosFiltro | undefined) => {
+    setColumnFilters((prev) => {
+      const otros = prev.filter((f) => f.id !== "cambios");
+      return value ? [...otros, { id: "cambios", value }] : otros;
+    });
+  };
+
+  // El Excel lo arma la ruta del servidor, así que los filtros de estado y sede
+  // de la tabla viajan como query params.
+  const filtroEstado = columnFilters.find((f) => f.id === "estado")?.value as
+    | RegimenEstado
+    | undefined;
+  const filtroSede = columnFilters.find((f) => f.id === "sede")?.value as
+    | string
+    | undefined;
+
+  const exportHref = useMemo(() => {
+    const params = new URLSearchParams();
+    if (filtroEstado) params.set("estado", filtroEstado);
+    if (filtroSede) params.set("sede", filtroSede);
+    const query = params.toString();
+    return `/api/regimen/cambios-comision${query ? `?${query}` : ""}`;
+  }, [filtroEstado, filtroSede]);
+
+  // Cuántos cambios entrarían en el Excel con los filtros puestos: si no hay
+  // ninguno, el botón se deshabilita en vez de bajar una planilla vacía.
+  const cambiosExportables = useMemo(
+    () =>
+      data.reduce((total, solicitud) => {
+        if (filtroEstado && solicitud.estado !== filtroEstado) return total;
+        if (filtroSede && solicitud.sede.name !== filtroSede) return total;
+        return total + resumenCambiosComision(solicitud).pedidos;
+      }, 0),
+    [data, filtroEstado, filtroSede]
+  );
+
+  const progreso = useMemo<ProgresoCambios>(() => {
+    let pedidos = 0;
+    let aprobados = 0;
+    let solicitudesPendientes = 0;
+    let solicitudesAprobadas = 0;
+    for (const solicitud of data) {
+      const resumen = resumenCambiosComision(solicitud);
+      if (resumen.pedidos === 0) continue;
+      pedidos += resumen.pedidos;
+      aprobados += resumen.aprobados;
+      if (resumen.pendientes > 0) solicitudesPendientes++;
+      else solicitudesAprobadas++;
+    }
+    return {
+      pedidos,
+      aprobados,
+      pendientes: pedidos - aprobados,
+      solicitudesPendientes,
+      solicitudesAprobadas,
+    };
+  }, [data]);
+
   return (
-    <DataTable
-      columns={buildColumns(perms)}
-      data={data}
-      searchColumn="estudiante"
-      searchPlaceholder="Buscar por estudiante..."
-      filters={[
-        {
-          column: "estado",
-          options: REGIMEN_ESTADOS.map((e) => ({
-            label: ESTADO_LABELS[e],
-            value: e,
-          })),
-          placeholder: "Todos los estados",
-        },
-        {
-          column: "sede",
-          options: sedes.map((name) => ({ label: name, value: name })),
-          placeholder: "Todas las sedes",
-        },
-      ]}
-    />
+    <div className="space-y-4">
+      <CambiosProgreso
+        progreso={progreso}
+        filtro={filtroCambios}
+        onFiltroChange={setFiltroCambios}
+      />
+
+      <div className="flex justify-end">
+        {cambiosExportables > 0 ? (
+          <Button variant="outline" asChild className="w-fit">
+            <a href={exportHref} download>
+              <FileSpreadsheet className="h-4 w-4" />
+              Exportar cambios a Excel ({cambiosExportables})
+            </a>
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            disabled
+            className="w-fit"
+            title="No hay cambios de comisión para exportar con los filtros aplicados"
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            Exportar cambios a Excel
+          </Button>
+        )}
+      </div>
+
+      <DataTable
+        columns={columns}
+        data={data}
+        searchColumn="estudiante"
+        searchPlaceholder="Buscar por estudiante..."
+        columnFilters={columnFilters}
+        onColumnFiltersChange={setColumnFilters}
+        filters={[
+          {
+            column: "estado",
+            options: REGIMEN_ESTADOS.map((e) => ({
+              label: ESTADO_LABELS[e],
+              value: e,
+            })),
+            placeholder: "Todos los estados",
+          },
+          {
+            column: "cambios",
+            options: CAMBIOS_FILTROS.map((c) => ({
+              label: CAMBIOS_FILTRO_LABELS[c],
+              value: c,
+            })),
+            placeholder: "Todos los cambios",
+          },
+          {
+            column: "sede",
+            options: sedes.map((name) => ({ label: name, value: name })),
+            placeholder: "Todas las sedes",
+          },
+        ]}
+      />
+    </div>
   );
 }
