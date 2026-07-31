@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Mail } from "lucide-react";
 import { getSolicitudesRegimen } from "@/actions/regimen-especial";
 import { Button } from "@/components/ui/button";
 import { RegimenTable } from "./regimen-table";
@@ -50,12 +50,22 @@ export default async function RegimenEspecialAdminPage() {
             Solicitudes de inscripción al régimen especial de cursado
           </p>
         </div>
-        <Button variant="outline" asChild className="w-fit">
-          <Link href="/admin/regimen-especial/reporte">
-            <BarChart3 className="h-4 w-4" />
-            Ver informe
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {can(perms, "regimen", "configurarEmails") && (
+            <Button variant="outline" asChild className="w-fit">
+              <Link href="/admin/regimen-especial/emails">
+                <Mail className="h-4 w-4" />
+                Emails
+              </Link>
+            </Button>
+          )}
+          <Button variant="outline" asChild className="w-fit">
+            <Link href="/admin/regimen-especial/reporte">
+              <BarChart3 className="h-4 w-4" />
+              Ver informe
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <RegimenTable

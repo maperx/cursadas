@@ -116,15 +116,19 @@ export function RegimenReviewDialog({
           variant: "destructive",
         });
       } else {
+        // Al aprobar el último cambio pendiente se notifica al estudiante.
+        const emailEnviado = "emailEnviado" in result && result.emailEnviado;
         toast({
           title:
             action === "aprobar"
               ? "Cambio de comisión aprobado"
               : "Edición reabierta",
           description:
-            action === "aprobar"
-              ? "El estudiante ya no puede modificar esta comisión."
-              : "El estudiante puede volver a editar esta comisión.",
+            action === "reabrir"
+              ? "El estudiante puede volver a editar esta comisión."
+              : emailEnviado
+              ? "No quedan cambios pendientes: se notificó al estudiante por email."
+              : "El estudiante ya no puede modificar esta comisión.",
           variant: "success",
         });
         router.refresh();

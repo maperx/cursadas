@@ -150,3 +150,117 @@ export const REGIMEN_DOC_ALLOWED_TYPES = [
   "image/webp",
 ];
 export const REGIMEN_DOC_MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+// --- Plantillas de los emails que se envían al estudiante ---
+
+// Cada tipo corresponde a un momento del flujo en el que se notifica al
+// estudiante. El texto y el PDF adjunto se configuran desde el panel admin.
+export const REGIMEN_EMAIL_TIPOS = [
+  "solicitud_aprobada",
+  "cambios_comision_aprobados",
+] as const;
+export type RegimenEmailTipo = (typeof REGIMEN_EMAIL_TIPOS)[number];
+
+export const REGIMEN_EMAIL_LABELS: Record<RegimenEmailTipo, string> = {
+  solicitud_aprobada: "Solicitud aprobada",
+  cambios_comision_aprobados: "Cambios de comisión aprobados",
+};
+
+export const REGIMEN_EMAIL_HINTS: Record<RegimenEmailTipo, string> = {
+  solicitud_aprobada:
+    "Se envía al estudiante en el momento en que se aprueba su solicitud de régimen especial.",
+  cambios_comision_aprobados:
+    "Se envía cuando se aprueba el último cambio de comisión pendiente de la solicitud, es decir, cuando ya no le queda ninguno sin resolver.",
+};
+
+/** Variables que se reemplazan en el asunto y en el cuerpo de la plantilla. */
+export type RegimenEmailVariable = {
+  key: string;
+  label: string;
+  /** Si se omite, la variable existe en todas las plantillas. */
+  tipos?: RegimenEmailTipo[];
+};
+
+export const REGIMEN_EMAIL_VARIABLES: RegimenEmailVariable[] = [
+  { key: "nombre", label: "Apellidos y nombres del estudiante" },
+  { key: "apellidos", label: "Apellidos" },
+  { key: "nombres", label: "Nombres" },
+  { key: "dni", label: "DNI" },
+  { key: "carrera", label: "Carrera" },
+  { key: "sede", label: "Sede" },
+  { key: "motivo", label: "Motivo del régimen especial" },
+  { key: "asignaturas", label: "Lista de asignaturas de la solicitud" },
+  {
+    key: "observaciones",
+    label: "Observaciones cargadas en la revisión",
+    tipos: ["solicitud_aprobada"],
+  },
+  {
+    key: "cambios",
+    label: "Lista de cambios de comisión aprobados",
+    tipos: ["cambios_comision_aprobados"],
+  },
+];
+
+export function variablesDePlantilla(
+  tipo: RegimenEmailTipo
+): RegimenEmailVariable[] {
+  return REGIMEN_EMAIL_VARIABLES.filter((v) => !v.tipos || v.tipos.includes(tipo));
+}
+
+/**
+ * Reemplaza los `{{marcadores}}` por sus valores. Los valores llegan ya
+ * escapados (o son HTML generado por nosotros, como la lista de cambios);
+ * un marcador sin valor se borra en lugar de quedar a la vista.
+ */
+export function renderPlantilla(
+  texto: string,
+  vars: Record<string, string>
+): string {
+  return texto.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key: string) =>
+    vars[key] ?? ""
+  );
+}
+
+export const REGIMEN_EMAIL_DEFAULTS: Record<
+  RegimenEmailTipo,
+  { asunto: string; cuerpo: string }
+> = {
+  solicitud_aprobada: {
+    asunto: "Régimen especial de cursado - Solicitud aprobada",
+    cuerpo: [
+      "<h2>Tu solicitud fue aprobada</h2>",
+      "<p>¡Hola {{nombres}}!</p>",
+      "<p>Tu solicitud de inscripción al <strong>Régimen especial de cursado</strong> (motivo: {{motivo}}) fue <strong>aprobada</strong>.</p>",
+      "<p>{{observaciones}}</p>",
+      "<p>Ya podés cargar los cambios de comisión que necesites ingresando a tu cuenta, en la sección “Régimen especial”.</p>",
+    ].join(""),
+  },
+  cambios_comision_aprobados: {
+    asunto: "Régimen especial de cursado - Cambios de comisión aprobados",
+    cuerpo: [
+      "<h2>Tus cambios de comisión fueron aprobados</h2>",
+      "<p>¡Hola {{nombres}}!</p>",
+      "<p>Se aprobaron los cambios de comisión que solicitaste:</p>",
+      "<p>{{cambios}}</p>",
+      "<p>Podés ver el detalle ingresando a tu cuenta, en la sección “Régimen especial”.</p>",
+    ].join(""),
+  },
+};
+
+// El adjunto de las plantillas es un PDF (nota, resolución, instructivo).
+export const REGIMEN_EMAIL_ADJUNTO_TYPE = "application/pdf";
+export const REGIMEN_EMAIL_ADJUNTO_MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+export type RegimenEmailAdjunto = {
+  fileName: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+};
+
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

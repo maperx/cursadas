@@ -7,11 +7,18 @@ import { db } from "@/lib/db";
 import {
   regimenAsignaturas,
   regimenDocumentos,
+  regimenEmailPlantillas,
   regimenSolicitudes,
   user,
 } from "@/lib/db/schema";
 import { requireAuth, requirePermission } from "@/lib/auth-server";
 import { sendEmail } from "@/lib/email";
+import {
+  enviarEmailRegimen,
+  getPlantillas,
+  varsDeSolicitud,
+  type RegimenEmailPlantilla,
+} from "@/lib/regimen-email";
 import {
   CAMBIO_ESTADO_LABELS,
   DOC_GENERALES,
@@ -21,10 +28,13 @@ import {
   ESTADO_LABELS,
   MOTIVO_LABELS,
   REGIMEN_DOC_TIPOS,
+  REGIMEN_EMAIL_ADJUNTO_TYPE,
+  REGIMEN_EMAIL_TIPOS,
   REGIMEN_MOTIVOS,
   esCambioComision,
   motivoIncluyeLaboral,
   motivoIncluyePersonas,
+  resumenCambiosComision,
   type RegimenDocTipo,
   type RegimenEstado,
 } from "@/lib/regimen-especial";
@@ -250,11 +260,20 @@ export async function updateEstadoSolicitud(
       where: eq(user.id, updated.userId),
       columns: { email: true, name: true },
     });
-    if (applicant?.email) {
-      await sendRegimenDecisionEmail({
+    if (applicant?.email && estado === "aprobada") {
+      // La aprobación usa la plantilla configurable del panel.
+      const solicitud = await getSolicitudParaEmail(updated.id);
+      if (solicitud) {
+        await enviarEmailRegimen({
+          tipo: "solicitud_aprobada",
+          to: applicant.email,
+          vars: varsDeSolicitud(solicitud),
+        });
+      }
+    } else if (applicant?.email) {
+      await sendRegimenRechazoEmail({
         to: applicant.email,
         nombre: applicant.name,
-        estado,
         motivo: updated.motivo,
         nota,
       });
@@ -398,9 +417,28 @@ export async function aprobarCambioComisionAsignatura(
     return { error: "Asignatura no encontrada" };
   }
 
+  // Se avisa al estudiante recién cuando no le queda ningún cambio pendiente,
+  // así recibe un único email con todos los cambios ya resueltos.
+  let emailEnviado = false;
+  try {
+    const solicitud = await getSolicitudParaEmail(updated.solicitudId);
+    if (solicitud) {
+      const resumen = resumenCambiosComision(solicitud);
+      if (resumen.pedidos > 0 && resumen.pendientes === 0) {
+        emailEnviado = await enviarEmailRegimen({
+          tipo: "cambios_comision_aprobados",
+          to: solicitud.user.email,
+          vars: varsDeSolicitud(solicitud),
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Error enviando email de cambios de comisión:", error);
+  }
+
   revalidatePath("/regimen-especial");
   revalidatePath("/admin/regimen-especial");
-  return { success: true };
+  return { success: true, emailEnviado };
 }
 
 // El admin reabre la edición del cambio de comisión de UNA asignatura.
@@ -665,35 +703,42 @@ export async function getCambiosComisionListado(
   return rows;
 }
 
-async function sendRegimenDecisionEmail({
+// Datos que necesitan las plantillas para resolver sus {{marcadores}}.
+async function getSolicitudParaEmail(solicitudId: string) {
+  return await db.query.regimenSolicitudes.findFirst({
+    where: eq(regimenSolicitudes.id, solicitudId),
+    with: {
+      user: { columns: { email: true, name: true } },
+      carrera: { columns: { name: true } },
+      sede: { columns: { name: true } },
+      asignaturas: { with: { asignatura: { columns: { name: true } } } },
+    },
+  });
+}
+
+// El rechazo no es configurable desde el panel: siempre lleva el motivo que
+// cargó quien revisó la solicitud.
+async function sendRegimenRechazoEmail({
   to,
   nombre,
-  estado,
   motivo,
   nota,
 }: {
   to: string;
   nombre: string;
-  estado: "aprobada" | "rechazada";
   motivo: (typeof REGIMEN_MOTIVOS)[number];
   nota: string | null;
 }) {
-  const aprobada = estado === "aprobada";
-  const titulo = aprobada
-    ? "Tu solicitud fue aprobada"
-    : "Tu solicitud fue rechazada";
-  const color = aprobada ? "#16a34a" : "#dc2626";
-
   await sendEmail({
     to,
-    subject: `Régimen especial de cursado - ${ESTADO_LABELS[estado]}`,
+    subject: `Régimen especial de cursado - ${ESTADO_LABELS.rechazada}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: ${color};">${titulo}</h2>
+        <h2 style="color: #dc2626;">Tu solicitud fue rechazada</h2>
         <p>¡Hola ${nombre}!</p>
         <p>Tu solicitud de inscripción al <strong>Régimen especial de cursado</strong>
         (motivo: ${MOTIVO_LABELS[motivo]}) fue
-        <strong>${ESTADO_LABELS[estado].toLowerCase()}</strong>.</p>
+        <strong>rechazada</strong>.</p>
         ${
           nota
             ? `<p style="background:#f5f5f5;border-radius:6px;padding:12px 16px;">
@@ -711,4 +756,67 @@ async function sendRegimenDecisionEmail({
       </div>
     `,
   });
+}
+
+// --- Configuración de los emails al estudiante ---
+
+/** Las dos plantillas, con el texto por defecto si todavía no se guardaron. */
+export async function getRegimenEmailPlantillas(): Promise<
+  RegimenEmailPlantilla[]
+> {
+  await requirePermission("regimen", "configurarEmails");
+  return await getPlantillas(REGIMEN_EMAIL_TIPOS);
+}
+
+const plantillaSchema = z.object({
+  tipo: z.enum(REGIMEN_EMAIL_TIPOS),
+  asunto: z.string().trim().min(1, "El asunto es requerido").max(200),
+  cuerpo: z.string().trim().min(1, "El texto del email es requerido"),
+  activo: z.boolean(),
+  adjunto: z
+    .object({
+      fileName: z.string().min(1),
+      originalName: z.string().min(1),
+      // El único adjunto que acepta la ruta de subida es un PDF.
+      mimeType: z.string().min(1),
+      size: z.number().int().nonnegative(),
+    })
+    .nullable(),
+});
+
+export type RegimenEmailPlantillaInput = z.infer<typeof plantillaSchema>;
+
+export async function updateRegimenEmailPlantilla(
+  input: RegimenEmailPlantillaInput
+) {
+  const { session } = await requirePermission("regimen", "configurarEmails");
+
+  const validated = plantillaSchema.safeParse(input);
+  if (!validated.success) {
+    return { error: validated.error.issues[0]?.message ?? "Datos inválidos" };
+  }
+
+  const { tipo, asunto, cuerpo, activo, adjunto } = validated.data;
+  const values = {
+    asunto,
+    cuerpo,
+    activo,
+    adjuntoFileName: adjunto?.fileName ?? null,
+    adjuntoOriginalName: adjunto?.originalName ?? null,
+    adjuntoMimeType: adjunto ? REGIMEN_EMAIL_ADJUNTO_TYPE : null,
+    adjuntoSize: adjunto?.size ?? null,
+    updatedBy: session.user.id,
+    updatedAt: new Date(),
+  };
+
+  await db
+    .insert(regimenEmailPlantillas)
+    .values({ tipo, ...values })
+    .onConflictDoUpdate({
+      target: regimenEmailPlantillas.tipo,
+      set: values,
+    });
+
+  revalidatePath("/admin/regimen-especial/emails");
+  return { success: true };
 }

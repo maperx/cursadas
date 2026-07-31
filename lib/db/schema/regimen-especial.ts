@@ -1,4 +1,5 @@
 import {
+  boolean,
   integer,
   pgEnum,
   pgTable,
@@ -15,6 +16,7 @@ import { sedes } from "./sedes";
 import {
   REGIMEN_CAMBIO_ESTADOS,
   REGIMEN_DOC_TIPOS,
+  REGIMEN_EMAIL_TIPOS,
   REGIMEN_ESTADOS,
   REGIMEN_MOTIVOS,
 } from "../../regimen-especial";
@@ -154,3 +156,30 @@ export const regimenDocumentosRelations = relations(
     }),
   })
 );
+
+export const regimenEmailTipoEnum = pgEnum(
+  "regimen_email_tipo",
+  REGIMEN_EMAIL_TIPOS
+);
+
+// Plantillas de los emails automáticos al estudiante: una fila por tipo, que se
+// crea al guardarla por primera vez desde el panel (hasta entonces rige el
+// texto por defecto de REGIMEN_EMAIL_DEFAULTS). El PDF adjunto se guarda fuera
+// de public/ y se lee al momento de enviar.
+export const regimenEmailPlantillas = pgTable("regimen_email_plantillas", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tipo: regimenEmailTipoEnum("tipo").notNull().unique(),
+  asunto: text("asunto").notNull(),
+  // HTML generado por el editor de texto enriquecido del panel.
+  cuerpo: text("cuerpo").notNull(),
+  // Permite silenciar la notificación sin perder el texto configurado.
+  activo: boolean("activo").notNull().default(true),
+  adjuntoFileName: text("adjunto_file_name"),
+  adjuntoOriginalName: text("adjunto_original_name"),
+  adjuntoMimeType: text("adjunto_mime_type"),
+  adjuntoSize: integer("adjunto_size"),
+  updatedBy: text("updated_by").references(() => user.id, {
+    onDelete: "set null",
+  }),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});

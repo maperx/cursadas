@@ -17,14 +17,22 @@ function getTransporter() {
   return transporter;
 }
 
+export type EmailAttachment = {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+};
+
 export async function sendEmail({
   to,
   subject,
   html,
+  attachments,
 }: {
   to: string;
   subject: string;
   html: string;
+  attachments?: EmailAttachment[];
 }) {
   try {
     await getTransporter().sendMail({
@@ -32,6 +40,7 @@ export async function sendEmail({
       to,
       subject,
       html,
+      attachments,
     });
   } catch (error) {
     console.error("Error sending email:", error);

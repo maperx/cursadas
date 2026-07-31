@@ -13,7 +13,8 @@ export type PermissionAction =
   | "edit"
   | "delete"
   | "resolverSolicitudes"
-  | "resolverCambios";
+  | "resolverCambios"
+  | "configurarEmails";
 
 export type ResourceKey =
   | "sedes"
@@ -89,6 +90,11 @@ export const RESOURCES: ResourceDef[] = [
         key: "resolverCambios",
         label: "Resolver cambios de comisión",
         hint: "Aprobar o reabrir cambios de comisión",
+      },
+      {
+        key: "configurarEmails",
+        label: "Configurar emails",
+        hint: "Editar el texto y el adjunto de los avisos al estudiante",
       },
       { key: "delete", label: "Borrar" },
     ],
