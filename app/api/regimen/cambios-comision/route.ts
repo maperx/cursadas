@@ -18,8 +18,9 @@ const COLUMNS: { header: string; key: string; width: number }[] = [
   { header: "Comisión actual", key: "comisionActual", width: 16 },
   { header: "Comisión deseada", key: "comisionDeseada", width: 17 },
   { header: "Estado del cambio", key: "estadoCambio", width: 22 },
+  { header: "Observación del cambio", key: "observacionCambio", width: 40 },
   { header: "Fecha de solicitud", key: "fechaSolicitud", width: 18 },
-  { header: "Cambio aprobado el", key: "fechaAprobacionCambio", width: 18 },
+  { header: "Cambio resuelto el", key: "fechaResolucionCambio", width: 18 },
 ];
 
 // Sirve para el nombre del archivo: "San José" -> "san-jose".
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
   for (const key of ["comisionActual", "comisionDeseada"]) {
     sheet.getColumn(key).alignment = { horizontal: "right" };
   }
-  for (const key of ["fechaSolicitud", "fechaAprobacionCambio"]) {
+  for (const key of ["fechaSolicitud", "fechaResolucionCambio"]) {
     sheet.getColumn(key).numFmt = "dd/mm/yyyy";
   }
 

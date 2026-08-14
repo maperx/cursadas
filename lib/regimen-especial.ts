@@ -7,9 +7,24 @@ export type RegimenEstado = (typeof REGIMEN_ESTADOS)[number];
 
 // Estado del sub-flujo de "cambio de comisión", disponible una vez que la
 // solicitud fue aprobada. El estudiante carga los cambios mientras está
-// "pendiente"; cuando el admin los aprueba pasa a "aprobado" y se bloquea.
-export const REGIMEN_CAMBIO_ESTADOS = ["pendiente", "aprobado"] as const;
+// "pendiente"; cuando quien resuelve los cambios lo aprueba o lo rechaza queda
+// bloqueado (se puede reabrir para que el estudiante lo vuelva a editar).
+export const REGIMEN_CAMBIO_ESTADOS = [
+  "pendiente",
+  "aprobado",
+  "rechazado",
+] as const;
 export type RegimenCambioEstado = (typeof REGIMEN_CAMBIO_ESTADOS)[number];
+
+/** Estados a los que puede llevar un cambio quien tiene `resolverCambios`. */
+export const REGIMEN_CAMBIO_RESOLUCIONES = ["aprobado", "rechazado"] as const;
+export type RegimenCambioResolucion =
+  (typeof REGIMEN_CAMBIO_RESOLUCIONES)[number];
+
+/** Un cambio resuelto (aprobado o rechazado) ya no lo puede editar el alumno. */
+export function cambioResuelto(estado: RegimenCambioEstado): boolean {
+  return estado !== "pendiente";
+}
 
 export const REGIMEN_MOTIVOS = ["laboral", "personas_a_cargo", "ambos"] as const;
 export type RegimenMotivo = (typeof REGIMEN_MOTIVOS)[number];
@@ -58,6 +73,7 @@ export const ESTADO_LABELS: Record<RegimenEstado, string> = {
 export const CAMBIO_ESTADO_LABELS: Record<RegimenCambioEstado, string> = {
   pendiente: "Pendiente de aprobación",
   aprobado: "Aprobado",
+  rechazado: "Rechazado",
 };
 
 export const DOC_TIPO_LABELS: Record<RegimenDocTipo, string> = {
@@ -92,9 +108,10 @@ export type AsignaturaCambio = {
 };
 
 export type ResumenCambios = {
-  /** Cambios pedidos por el estudiante (aprobados + pendientes). */
+  /** Cambios pedidos por el estudiante (aprobados + rechazados + pendientes). */
   pedidos: number;
   aprobados: number;
+  rechazados: number;
   pendientes: number;
 };
 
@@ -106,32 +123,45 @@ export function resumenCambiosComision(solicitud: {
   asignaturas: AsignaturaCambio[];
 }): ResumenCambios {
   if (solicitud.estado !== "aprobada") {
-    return { pedidos: 0, aprobados: 0, pendientes: 0 };
+    return { pedidos: 0, aprobados: 0, rechazados: 0, pendientes: 0 };
   }
   const cambios = solicitud.asignaturas.filter(esCambioComision);
   const aprobados = cambios.filter(
     (a) => a.comisionEstado === "aprobado"
   ).length;
+  const rechazados = cambios.filter(
+    (a) => a.comisionEstado === "rechazado"
+  ).length;
   return {
     pedidos: cambios.length,
     aprobados,
-    pendientes: cambios.length - aprobados,
+    rechazados,
+    pendientes: cambios.length - aprobados - rechazados,
   };
 }
 
 // Categorías para filtrar el listado del admin por el estado de los cambios.
-export const CAMBIOS_FILTROS = ["pendientes", "aprobados", "sin"] as const;
+export const CAMBIOS_FILTROS = [
+  "pendientes",
+  "aprobados",
+  "rechazados",
+  "sin",
+] as const;
 export type CambiosFiltro = (typeof CAMBIOS_FILTROS)[number];
 
 export const CAMBIOS_FILTRO_LABELS: Record<CambiosFiltro, string> = {
   pendientes: "Con cambios pendientes",
   aprobados: "Con cambios aprobados",
+  rechazados: "Con cambios rechazados",
   sin: "Sin cambios de comisión",
 };
 
+// Una solicitud cae en una sola categoría: si le queda algo sin resolver es
+// "pendientes"; ya resuelta, "rechazados" si tuvo al menos un rechazo.
 export function cambiosFiltro(resumen: ResumenCambios): CambiosFiltro {
   if (resumen.pedidos === 0) return "sin";
-  return resumen.pendientes > 0 ? "pendientes" : "aprobados";
+  if (resumen.pendientes > 0) return "pendientes";
+  return resumen.rechazados > 0 ? "rechazados" : "aprobados";
 }
 
 export function motivoIncluyeLaboral(motivo: RegimenMotivo): boolean {
@@ -163,14 +193,14 @@ export type RegimenEmailTipo = (typeof REGIMEN_EMAIL_TIPOS)[number];
 
 export const REGIMEN_EMAIL_LABELS: Record<RegimenEmailTipo, string> = {
   solicitud_aprobada: "Solicitud aprobada",
-  cambios_comision_aprobados: "Cambios de comisión aprobados",
+  cambios_comision_aprobados: "Cambios de comisión resueltos",
 };
 
 export const REGIMEN_EMAIL_HINTS: Record<RegimenEmailTipo, string> = {
   solicitud_aprobada:
     "Se envía al estudiante en el momento en que se aprueba su solicitud de régimen especial.",
   cambios_comision_aprobados:
-    "Se envía cuando se aprueba el último cambio de comisión pendiente de la solicitud, es decir, cuando ya no le queda ninguno sin resolver.",
+    "Se envía cuando se resuelve el último cambio de comisión pendiente de la solicitud, es decir, cuando ya no le queda ninguno sin aprobar o rechazar. La lista {{cambios}} indica cómo quedó cada uno.",
 };
 
 /** Variables que se reemplazan en el asunto y en el cuerpo de la plantilla. */
@@ -197,7 +227,7 @@ export const REGIMEN_EMAIL_VARIABLES: RegimenEmailVariable[] = [
   },
   {
     key: "cambios",
-    label: "Lista de cambios de comisión aprobados",
+    label: "Lista de cambios de comisión, con su resultado y observación",
     tipos: ["cambios_comision_aprobados"],
   },
 ];
@@ -237,11 +267,11 @@ export const REGIMEN_EMAIL_DEFAULTS: Record<
     ].join(""),
   },
   cambios_comision_aprobados: {
-    asunto: "Régimen especial de cursado - Cambios de comisión aprobados",
+    asunto: "Régimen especial de cursado - Cambios de comisión resueltos",
     cuerpo: [
-      "<h2>Tus cambios de comisión fueron aprobados</h2>",
+      "<h2>Tus cambios de comisión ya fueron resueltos</h2>",
       "<p>¡Hola {{nombres}}!</p>",
-      "<p>Se aprobaron los cambios de comisión que solicitaste:</p>",
+      "<p>Así quedaron los cambios de comisión que solicitaste:</p>",
       "<p>{{cambios}}</p>",
       "<p>Podés ver el detalle ingresando a tu cuenta, en la sección “Régimen especial”.</p>",
     ].join(""),

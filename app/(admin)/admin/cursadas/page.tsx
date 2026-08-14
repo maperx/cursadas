@@ -5,7 +5,7 @@ import { getDocentes } from "@/actions/users";
 import { getAulas } from "@/actions/aulas";
 import { CursadasContent } from "./cursadas-content";
 import { getPermissions } from "@/lib/auth-server";
-import { can } from "@/lib/permissions";
+import { can, canCursada } from "@/lib/permissions";
 
 export default async function CursadasPage() {
   const [perms, cursadas, carreras, asignaturas, docentes, todasLasAulas] =
@@ -26,6 +26,14 @@ export default async function CursadasPage() {
   const sedesDelete = sedeIds.filter((id) =>
     can(perms, "cursadas", "delete", id)
   );
+  // Sedes donde puede sobre las cursadas con el tilde Evento: incluye a las de
+  // permiso pleno más las habilitadas únicamente para eventos.
+  const sedesEditEventos = sedeIds.filter((id) =>
+    canCursada(perms, "edit", id, true)
+  );
+  const sedesDeleteEventos = sedeIds.filter((id) =>
+    canCursada(perms, "delete", id, true)
+  );
 
   const aulas = todasLasAulas.filter((aula) => sedesView.includes(aula.sedeId));
 
@@ -38,6 +46,8 @@ export default async function CursadasPage() {
       aulas={aulas}
       sedesEdit={sedesEdit}
       sedesDelete={sedesDelete}
+      sedesEditEventos={sedesEditEventos}
+      sedesDeleteEventos={sedesDeleteEventos}
     />
   );
 }

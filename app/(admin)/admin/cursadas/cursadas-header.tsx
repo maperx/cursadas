@@ -41,6 +41,8 @@ interface CursadasHeaderProps {
   docentes: Docente[];
   /** Aulas de las sedes donde el usuario puede editar cursadas. */
   aulasEditables: Aula[];
+  /** Sedes donde solo puede crear cursadas con el tilde Evento. */
+  sedesSoloEventos: string[];
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
 }
@@ -50,6 +52,7 @@ export function CursadasHeader({
   asignaturas,
   docentes,
   aulasEditables,
+  sedesSoloEventos,
   viewMode,
   onViewModeChange,
 }: CursadasHeaderProps) {
@@ -110,6 +113,7 @@ export function CursadasHeader({
             asignaturas={asignaturas}
             docentes={docentes}
             aulas={aulasEditables}
+            sedesSoloEventos={sedesSoloEventos}
           >
             <Button>
               <Plus className="mr-2 h-4 w-4" />

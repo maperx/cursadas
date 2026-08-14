@@ -72,10 +72,12 @@ interface CursadasDailyProps {
   asignaturas: Asignatura[];
   docentes: Docente[];
   /** Permisos de cursadas, por sede (la sede de una cursada es la de su aula). */
-  canEdit: (sedeId: string) => boolean;
-  canDelete: (sedeId: string) => boolean;
+  canEdit: (sedeId: string, esEvento: boolean) => boolean;
+  canDelete: (sedeId: string, esEvento: boolean) => boolean;
   /** Aulas de las sedes donde el usuario puede editar (para el diálogo). */
   aulasEditables: Aula[];
+  /** Sedes donde el usuario solo puede editar cursadas con el tilde Evento. */
+  sedesSoloEventos: string[];
 }
 
 const PIXELS_PER_MINUTE = 1.5;
@@ -165,6 +167,7 @@ export function CursadasDaily({
   asignaturas,
   docentes,
   aulasEditables,
+  sedesSoloEventos,
   canEdit,
   canDelete,
 }: CursadasDailyProps) {
@@ -309,7 +312,7 @@ export function CursadasDaily({
                 return (
                   <CursadaEditWrapper
                     key={cursada.id}
-                    canEdit={canEdit(cursada.aula.sedeId)}
+                    canEdit={canEdit(cursada.aula.sedeId, cursada.examen)}
                     cursada={{
                       ...cursada,
                       docenteIds: cursada.cursadaDocentes.map(
@@ -320,9 +323,10 @@ export function CursadasDaily({
                     asignaturas={asignaturas}
                     docentes={docentes}
                     aulas={aulasEditables}
+                    sedesSoloEventos={sedesSoloEventos}
                   >
                     <div
-                      className={`absolute overflow-hidden rounded-md border p-2 text-sm ${canEdit(cursada.aula.sedeId) ? "cursor-pointer hover:brightness-95" : ""} transition-[filter] ${isSuspended ? "opacity-60" : ""}`}
+                      className={`absolute overflow-hidden rounded-md border p-2 text-sm ${canEdit(cursada.aula.sedeId, cursada.examen) ? "cursor-pointer hover:brightness-95" : ""} transition-[filter] ${isSuspended ? "opacity-60" : ""}`}
                       style={{
                         top,
                         height,
@@ -380,7 +384,7 @@ export function CursadasDaily({
                         {cursada.carrera.name}
                       </Badge>
                       <div className="absolute top-2 right-2 flex items-center gap-1">
-                        {canEdit(cursada.aula.sedeId) && (
+                        {canEdit(cursada.aula.sedeId, cursada.examen) && (
                           <>
                             <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                             <SuspensionDialog
@@ -398,7 +402,7 @@ export function CursadasDaily({
                             </SuspensionDialog>
                           </>
                         )}
-                        {canDelete(cursada.aula.sedeId) && (
+                        {canDelete(cursada.aula.sedeId, cursada.examen) && (
                           <DeleteDialog
                             title="Eliminar Cursada"
                             description={`¿Estás seguro de que deseas eliminar esta cursada de "${cursada.asignatura.name}"? Esta acción no se puede deshacer.`}

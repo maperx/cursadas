@@ -11,6 +11,7 @@ import { toast } from "@/components/ui/use-toast";
 import { updateCambiosComision } from "@/actions/regimen-especial";
 import {
   CAMBIO_ESTADO_LABELS,
+  cambioResuelto,
   esCambioComision,
   soloNumeros,
   type RegimenCambioEstado,
@@ -22,6 +23,16 @@ type AsignaturaCambio = {
   comisionActual: string | null;
   comisionDeseada: string | null;
   estado: RegimenCambioEstado;
+  observaciones: string | null;
+};
+
+const ESTADO_VARIANT: Record<
+  RegimenCambioEstado,
+  "warning" | "success" | "destructive"
+> = {
+  pendiente: "warning",
+  aprobado: "success",
+  rechazado: "destructive",
 };
 
 interface CambiosComisionFormProps {
@@ -101,14 +112,14 @@ export function CambiosComisionForm({
         <p className="text-sm text-muted-foreground">
           La comisión actual es la que declaraste al enviar la solicitud.
           Indicá, si corresponde, a qué comisión te querés cambiar en cada
-          asignatura. Cada cambio lo aprueba un administrador por separado; una
-          vez aprobado no se puede modificar.
+          asignatura. Cada cambio se resuelve por separado: una vez aprobado o
+          rechazado no se puede modificar.
         </p>
       </div>
 
       <div className="space-y-4">
         {rows.map((row) => {
-          const bloqueada = row.estado === "aprobado";
+          const bloqueada = cambioResuelto(row.estado);
           // Sin comisión deseada no hay nada que aprobar: no se muestra estado.
           const pidioCambio = esCambioComision(row);
           return (
@@ -119,12 +130,33 @@ export function CambiosComisionForm({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-medium">{row.nombre}</p>
                 {(bloqueada || pidioCambio) && (
-                  <Badge variant={bloqueada ? "success" : "warning"}>
+                  <Badge variant={ESTADO_VARIANT[row.estado]}>
                     {bloqueada && <Lock className="mr-1 h-3 w-3" />}
                     {CAMBIO_ESTADO_LABELS[row.estado]}
                   </Badge>
                 )}
               </div>
+
+              {/* Lo que escribió quien resolvió el cambio: es el motivo del
+                  rechazo o una aclaración sobre la aprobación. */}
+              {bloqueada && row.observaciones && (
+                <div
+                  className={
+                    row.estado === "rechazado"
+                      ? "rounded-md border border-destructive/30 bg-destructive/5 p-2"
+                      : "rounded-md border bg-muted/40 p-2"
+                  }
+                >
+                  <p className="text-xs text-muted-foreground">
+                    {row.estado === "rechazado"
+                      ? "Motivo del rechazo"
+                      : "Observación"}
+                  </p>
+                  <p className="whitespace-pre-line text-sm">
+                    {row.observaciones}
+                  </p>
+                </div>
+              )}
 
               <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr]">
                 <div className="space-y-1">

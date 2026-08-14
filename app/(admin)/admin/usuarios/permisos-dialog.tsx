@@ -127,7 +127,9 @@ export function PermisosDialog({
               {resource.perSede ? (
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">
-                    Los permisos de cursadas se otorgan por sede.
+                    Los permisos de cursadas se otorgan por sede. Las opciones{" "}
+                    <strong>solo eventos</strong> habilitan únicamente las
+                    cursadas con el tilde Evento.
                   </p>
                   {sedes.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
@@ -144,6 +146,7 @@ export function PermisosDialog({
                           <label
                             key={action.key}
                             className="flex items-center gap-2 text-sm"
+                            title={action.hint}
                           >
                             <Checkbox
                               checked={(

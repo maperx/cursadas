@@ -27,14 +27,17 @@ import {
   DOC_TIPO_LABELS,
   ESTADO_LABELS,
   MOTIVO_LABELS,
+  REGIMEN_CAMBIO_RESOLUCIONES,
   REGIMEN_DOC_TIPOS,
   REGIMEN_EMAIL_ADJUNTO_TYPE,
   REGIMEN_EMAIL_TIPOS,
   REGIMEN_MOTIVOS,
+  cambioResuelto,
   esCambioComision,
   motivoIncluyeLaboral,
   motivoIncluyePersonas,
   resumenCambiosComision,
+  type RegimenCambioResolucion,
   type RegimenDocTipo,
   type RegimenEstado,
 } from "@/lib/regimen-especial";
@@ -323,7 +326,7 @@ const normComision = (v: string | null | undefined) => {
 };
 
 // El estudiante carga/edita los cambios de comisión de su solicitud aprobada.
-// No se tocan las asignaturas cuyo cambio ya fue aprobado (quedan bloqueadas).
+// No se tocan las asignaturas cuyo cambio ya fue resuelto (quedan bloqueadas).
 export async function updateCambiosComision(input: {
   solicitudId: string;
   cambios: {
@@ -371,7 +374,7 @@ export async function updateCambiosComision(input: {
   await db.transaction(async (tx) => {
     for (const c of validated.data.cambios) {
       const fila = filaByAsignatura.get(c.asignaturaId);
-      if (fila === undefined || fila.comisionEstado === "aprobado") continue;
+      if (fila === undefined || cambioResuelto(fila.comisionEstado)) continue;
       // La comisión actual la declaró el estudiante al enviar la solicitud y
       // no se reescribe. Solo se acepta acá si viene vacía (solicitudes
       // anteriores a que el campo fuera parte del formulario inicial).
@@ -397,18 +400,32 @@ export async function updateCambiosComision(input: {
   return { success: true };
 }
 
-// El admin aprueba el cambio de comisión de UNA asignatura: queda bloqueada.
-export async function aprobarCambioComisionAsignatura(
-  regimenAsignaturaId: string
+// Quien tiene `resolverCambios` resuelve el cambio de comisión de UNA
+// asignatura: al aprobarlo o rechazarlo queda bloqueado para el estudiante. La
+// observación es obligatoria para rechazar (es lo que le explica el motivo).
+export async function resolverCambioComisionAsignatura(
+  regimenAsignaturaId: string,
+  estado: RegimenCambioResolucion,
+  observaciones?: string | null
 ) {
   const { session } = await requirePermission("regimen", "resolverCambios");
+
+  if (!REGIMEN_CAMBIO_RESOLUCIONES.includes(estado)) {
+    return { error: "Estado inválido" };
+  }
+
+  const nota = observaciones?.trim() || null;
+  if (estado === "rechazado" && !nota) {
+    return { error: "Debe indicar el motivo del rechazo" };
+  }
 
   const [updated] = await db
     .update(regimenAsignaturas)
     .set({
-      comisionEstado: "aprobado",
-      comisionAprobadoBy: session.user.id,
-      comisionAprobadoAt: new Date(),
+      comisionEstado: estado,
+      comisionObservaciones: nota,
+      comisionResueltoBy: session.user.id,
+      comisionResueltoAt: new Date(),
     })
     .where(eq(regimenAsignaturas.id, regimenAsignaturaId))
     .returning();
@@ -417,31 +434,15 @@ export async function aprobarCambioComisionAsignatura(
     return { error: "Asignatura no encontrada" };
   }
 
-  // Se avisa al estudiante recién cuando no le queda ningún cambio pendiente,
-  // así recibe un único email con todos los cambios ya resueltos.
-  let emailEnviado = false;
-  try {
-    const solicitud = await getSolicitudParaEmail(updated.solicitudId);
-    if (solicitud) {
-      const resumen = resumenCambiosComision(solicitud);
-      if (resumen.pedidos > 0 && resumen.pendientes === 0) {
-        emailEnviado = await enviarEmailRegimen({
-          tipo: "cambios_comision_aprobados",
-          to: solicitud.user.email,
-          vars: varsDeSolicitud(solicitud),
-        });
-      }
-    }
-  } catch (error) {
-    console.error("Error enviando email de cambios de comisión:", error);
-  }
+  const emailEnviado = await notificarCambiosResueltos(updated.solicitudId);
 
   revalidatePath("/regimen-especial");
   revalidatePath("/admin/regimen-especial");
   return { success: true, emailEnviado };
 }
 
-// El admin reabre la edición del cambio de comisión de UNA asignatura.
+// Reabre la edición del cambio de comisión de UNA asignatura: vuelve a
+// "pendiente" y se descarta la resolución anterior.
 export async function reabrirCambioComisionAsignatura(
   regimenAsignaturaId: string
 ) {
@@ -451,8 +452,9 @@ export async function reabrirCambioComisionAsignatura(
     .update(regimenAsignaturas)
     .set({
       comisionEstado: "pendiente",
-      comisionAprobadoBy: null,
-      comisionAprobadoAt: null,
+      comisionObservaciones: null,
+      comisionResueltoBy: null,
+      comisionResueltoAt: null,
     })
     .where(eq(regimenAsignaturas.id, regimenAsignaturaId))
     .returning();
@@ -466,6 +468,26 @@ export async function reabrirCambioComisionAsignatura(
   return { success: true };
 }
 
+// Se avisa al estudiante recién cuando no le queda ningún cambio pendiente, así
+// recibe un único email con todos los cambios ya resueltos (aprobados y
+// rechazados). Un fallo al enviar no invalida la resolución.
+async function notificarCambiosResueltos(solicitudId: string) {
+  try {
+    const solicitud = await getSolicitudParaEmail(solicitudId);
+    if (!solicitud) return false;
+    const resumen = resumenCambiosComision(solicitud);
+    if (resumen.pedidos === 0 || resumen.pendientes > 0) return false;
+    return await enviarEmailRegimen({
+      tipo: "cambios_comision_aprobados",
+      to: solicitud.user.email,
+      vars: varsDeSolicitud(solicitud),
+    });
+  } catch (error) {
+    console.error("Error enviando email de cambios de comisión:", error);
+    return false;
+  }
+}
+
 // --- Informe de cambios de comisión (para el panel admin) ---
 
 export type ReporteFlujo = { desde: string; hacia: string; count: number };
@@ -477,6 +499,7 @@ export type ReporteCarrera = {
   estudiantes: number;
   cambios: number;
   aprobados: number;
+  rechazados: number;
   pendientes: number;
 };
 
@@ -487,6 +510,7 @@ export type ReporteAsignatura = {
   color: string;
   estudiantes: number;
   aprobados: number;
+  rechazados: number;
   pendientes: number;
   flujos: ReporteFlujo[];
 };
@@ -496,6 +520,7 @@ export type ReporteCambiosComision = {
     estudiantes: number;
     cambios: number;
     aprobados: number;
+    rechazados: number;
     pendientes: number;
     carreras: number;
     asignaturas: number;
@@ -530,6 +555,7 @@ export async function getReporteCambiosComision(): Promise<ReporteCambiosComisio
   let totalEstudiantes = 0;
   let totalCambios = 0;
   let totalAprobados = 0;
+  let totalRechazados = 0;
   let totalPendientes = 0;
 
   for (const s of solicitudes) {
@@ -547,6 +573,7 @@ export async function getReporteCambiosComision(): Promise<ReporteCambiosComisio
         estudiantes: 0,
         cambios: 0,
         aprobados: 0,
+        rechazados: 0,
         pendientes: 0,
       };
       carreraMap.set(s.carrera.id, carrera);
@@ -554,14 +581,9 @@ export async function getReporteCambiosComision(): Promise<ReporteCambiosComisio
     carrera.estudiantes++;
 
     for (const a of cambios) {
-      const aprobado = a.comisionEstado === "aprobado";
+      const estado = a.comisionEstado;
       totalCambios++;
-      if (aprobado) totalAprobados++;
-      else totalPendientes++;
-
       carrera.cambios++;
-      if (aprobado) carrera.aprobados++;
-      else carrera.pendientes++;
 
       let asig = asignaturaMap.get(a.asignaturaId);
       if (!asig) {
@@ -572,6 +594,7 @@ export async function getReporteCambiosComision(): Promise<ReporteCambiosComisio
           color: s.carrera.color,
           estudiantes: 0,
           aprobados: 0,
+          rechazados: 0,
           pendientes: 0,
           flujos: [],
           flujoMap: new Map(),
@@ -580,8 +603,20 @@ export async function getReporteCambiosComision(): Promise<ReporteCambiosComisio
       }
       // Una fila por (solicitud, asignatura) ⇒ un estudiante por cambio.
       asig.estudiantes++;
-      if (aprobado) asig.aprobados++;
-      else asig.pendientes++;
+
+      if (estado === "aprobado") {
+        totalAprobados++;
+        carrera.aprobados++;
+        asig.aprobados++;
+      } else if (estado === "rechazado") {
+        totalRechazados++;
+        carrera.rechazados++;
+        asig.rechazados++;
+      } else {
+        totalPendientes++;
+        carrera.pendientes++;
+        asig.pendientes++;
+      }
 
       const desde = a.comisionActual || "—";
       const hacia = a.comisionDeseada || "—";
@@ -611,6 +646,7 @@ export async function getReporteCambiosComision(): Promise<ReporteCambiosComisio
       estudiantes: totalEstudiantes,
       cambios: totalCambios,
       aprobados: totalAprobados,
+      rechazados: totalRechazados,
       pendientes: totalPendientes,
       carreras: carreraMap.size,
       asignaturas: asignaturaMap.size,
@@ -634,8 +670,9 @@ export type CambioComisionRow = {
   comisionActual: string;
   comisionDeseada: string;
   estadoCambio: string;
+  observacionCambio: string;
   fechaSolicitud: Date;
-  fechaAprobacionCambio: Date | null;
+  fechaResolucionCambio: Date | null;
 };
 
 /** Mismos filtros que ofrece la tabla del admin (se aplican al exportar). */
@@ -685,8 +722,9 @@ export async function getCambiosComisionListado(
         comisionActual: a.comisionActual ?? "",
         comisionDeseada: a.comisionDeseada ?? "",
         estadoCambio: CAMBIO_ESTADO_LABELS[a.comisionEstado],
+        observacionCambio: a.comisionObservaciones ?? "",
         fechaSolicitud: s.createdAt,
-        fechaAprobacionCambio: a.comisionAprobadoAt,
+        fechaResolucionCambio: a.comisionResueltoAt,
       });
     }
   }

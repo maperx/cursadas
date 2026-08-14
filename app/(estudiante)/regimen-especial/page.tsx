@@ -37,6 +37,7 @@ export default async function RegimenEspecialPage() {
               comisionActual: a.comisionActual,
               comisionDeseada: a.comisionDeseada,
               estado: a.comisionEstado,
+              observaciones: a.comisionObservaciones,
             }))}
           />
         )}

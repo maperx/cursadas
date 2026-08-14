@@ -31,6 +31,7 @@ export default async function RegimenEspecialAdminPage() {
       comisionActual: a.comisionActual,
       comisionDeseada: a.comisionDeseada,
       comisionEstado: a.comisionEstado,
+      comisionObservaciones: a.comisionObservaciones,
     })),
     documentos: s.documentos.map((d) => ({
       id: d.id,

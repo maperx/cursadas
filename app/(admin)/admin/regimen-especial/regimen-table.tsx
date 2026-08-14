@@ -7,11 +7,13 @@ import { DeleteDialog } from "@/components/admin/delete-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  ArrowRightLeft,
   CheckCircle2,
   Clock,
   Eye,
   FileSpreadsheet,
   Trash2,
+  XCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -28,6 +30,7 @@ import {
   type RegimenEstado,
 } from "@/lib/regimen-especial";
 import { CambiosProgreso, type ProgresoCambios } from "./cambios-progreso";
+import { CambiosComisionDialog } from "./cambios-comision-dialog";
 import { RegimenReviewDialog, type Solicitud } from "./regimen-review-dialog";
 
 const ESTADO_VARIANT: Record<
@@ -115,18 +118,27 @@ function buildColumns(perms: RegimenPerms): ColumnDef<Solicitud>[] {
         if (resumen.pedidos === 0) {
           return <span className="text-muted-foreground">—</span>;
         }
-        const hayPendientes = resumen.pendientes > 0;
+        // Pendientes manda sobre rechazados: primero hay que terminar de
+        // resolverlos.
+        const variant =
+          resumen.pendientes > 0
+            ? "warning"
+            : resumen.rechazados > 0
+            ? "destructive"
+            : "success";
+        const Icon =
+          resumen.pendientes > 0
+            ? Clock
+            : resumen.rechazados > 0
+            ? XCircle
+            : CheckCircle2;
         return (
           <Badge
-            variant={hayPendientes ? "warning" : "success"}
+            variant={variant}
             className="gap-1"
-            title={`${resumen.aprobados} de ${resumen.pedidos} cambios aprobados · ${resumen.pendientes} pendiente(s) de aprobación`}
+            title={`${resumen.aprobados} de ${resumen.pedidos} cambios aprobados · ${resumen.rechazados} rechazado(s) · ${resumen.pendientes} pendiente(s) de resolución`}
           >
-            {hayPendientes ? (
-              <Clock className="h-3 w-3" />
-            ) : (
-              <CheckCircle2 className="h-3 w-3" />
-            )}
+            <Icon className="h-3 w-3" />
             <span className="tabular-nums">
               {resumen.aprobados}/{resumen.pedidos}
             </span>
@@ -142,17 +154,44 @@ function buildColumns(perms: RegimenPerms): ColumnDef<Solicitud>[] {
     },
     {
       id: "actions",
-      cell: ({ row }) => (
+      cell: ({ row }) => {
+        const resumen = resumenCambiosComision(row.original);
+        return (
         <div className="flex items-center gap-2">
           <RegimenReviewDialog
             solicitud={row.original}
             canResolverSolicitudes={perms.canResolverSolicitudes}
-            canResolverCambios={perms.canResolverCambios}
           >
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" title="Ver solicitud">
               <Eye className="h-4 w-4" />
             </Button>
           </RegimenReviewDialog>
+          {/* Los cambios de comisión se resuelven aparte, y suele hacerlo otro
+              usuario: van en su propio diálogo. */}
+          {resumen.pedidos > 0 && (
+            <CambiosComisionDialog
+              solicitud={row.original}
+              canResolverCambios={perms.canResolverCambios}
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                title={
+                  resumen.pendientes > 0
+                    ? `Cambios de comisión (${resumen.pendientes} sin resolver)`
+                    : "Cambios de comisión"
+                }
+              >
+                <ArrowRightLeft
+                  className={
+                    resumen.pendientes > 0
+                      ? "h-4 w-4 text-yellow-600 dark:text-yellow-500"
+                      : "h-4 w-4"
+                  }
+                />
+              </Button>
+            </CambiosComisionDialog>
+          )}
           {perms.canDelete && (
             <DeleteDialog
               title="Eliminar solicitud"
@@ -165,7 +204,8 @@ function buildColumns(perms: RegimenPerms): ColumnDef<Solicitud>[] {
             </DeleteDialog>
           )}
         </div>
-      ),
+        );
+      },
     },
   ];
 }
@@ -239,22 +279,25 @@ export function RegimenTable({
   const progreso = useMemo<ProgresoCambios>(() => {
     let pedidos = 0;
     let aprobados = 0;
+    let rechazados = 0;
     let solicitudesPendientes = 0;
-    let solicitudesAprobadas = 0;
+    let solicitudesResueltas = 0;
     for (const solicitud of data) {
       const resumen = resumenCambiosComision(solicitud);
       if (resumen.pedidos === 0) continue;
       pedidos += resumen.pedidos;
       aprobados += resumen.aprobados;
+      rechazados += resumen.rechazados;
       if (resumen.pendientes > 0) solicitudesPendientes++;
-      else solicitudesAprobadas++;
+      else solicitudesResueltas++;
     }
     return {
       pedidos,
       aprobados,
-      pendientes: pedidos - aprobados,
+      rechazados,
+      pendientes: pedidos - aprobados - rechazados,
       solicitudesPendientes,
-      solicitudesAprobadas,
+      solicitudesResueltas,
     };
   }, [data]);
 

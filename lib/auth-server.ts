@@ -5,6 +5,8 @@ import { loadPermissions } from "./permissions-server";
 import {
   EMPTY_PERMISSIONS,
   can,
+  canCursada,
+  type AccionCursada,
   type PermissionAction,
   type PermissionSet,
   type ResourceKey,
@@ -44,6 +46,24 @@ export async function requirePermission(
   const session = await requireAuth();
   const perms = await getPermissions();
   if (!can(perms, resource, action, sedeId)) {
+    throw new Error("Forbidden");
+  }
+  return { session, perms };
+}
+
+/**
+ * Exige poder editar o borrar una cursada concreta: alcanza con el permiso
+ * pleno en esa sede, o con el permiso acotado a eventos si la cursada lleva el
+ * tilde Evento.
+ */
+export async function requireCursadaPermission(
+  action: AccionCursada,
+  sedeId: string | null | undefined,
+  esEvento: boolean
+) {
+  const session = await requireAuth();
+  const perms = await getPermissions();
+  if (!canCursada(perms, action, sedeId, esEvento)) {
     throw new Error("Forbidden");
   }
   return { session, perms };

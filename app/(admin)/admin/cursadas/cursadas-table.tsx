@@ -73,10 +73,12 @@ interface CursadasTableProps {
   asignaturas: Asignatura[];
   docentes: Docente[];
   /** Permisos de cursadas, por sede (la sede de una cursada es la de su aula). */
-  canEdit: (sedeId: string) => boolean;
-  canDelete: (sedeId: string) => boolean;
+  canEdit: (sedeId: string, esEvento: boolean) => boolean;
+  canDelete: (sedeId: string, esEvento: boolean) => boolean;
   /** Aulas de las sedes donde el usuario puede editar (para el diálogo). */
   aulasEditables: Aula[];
+  /** Sedes donde el usuario solo puede editar cursadas con el tilde Evento. */
+  sedesSoloEventos: string[];
 }
 
 function toInputValue(date: Date): string {
@@ -107,6 +109,7 @@ export function CursadasTable({
   asignaturas,
   docentes,
   aulasEditables,
+  sedesSoloEventos,
   canEdit,
   canDelete,
 }: CursadasTableProps) {
@@ -247,7 +250,7 @@ export function CursadasTable({
       id: "actions",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          {canEdit(row.original.aula.sedeId) && (
+          {canEdit(row.original.aula.sedeId, row.original.examen) && (
             <CursadaDialog
               cursada={{
                 ...row.original,
@@ -259,13 +262,14 @@ export function CursadasTable({
               asignaturas={asignaturas}
               docentes={docentes}
               aulas={aulasEditables}
+              sedesSoloEventos={sedesSoloEventos}
             >
               <Button variant="ghost" size="icon">
                 <Pencil className="h-4 w-4" />
               </Button>
             </CursadaDialog>
           )}
-          {canDelete(row.original.aula.sedeId) && (
+          {canDelete(row.original.aula.sedeId, row.original.examen) && (
             <DeleteDialog
               title="Eliminar Cursada"
               description={`¿Estás seguro de que deseas eliminar esta cursada de "${row.original.asignatura.name}"? Esta acción no se puede deshacer.`}

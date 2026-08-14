@@ -6,6 +6,7 @@ import {
   Clock,
   GraduationCap,
   Users,
+  XCircle,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -95,41 +96,42 @@ function BarRow({
 
 function EstadoSplit({
   aprobados,
+  rechazados,
   pendientes,
 }: {
   aprobados: number;
+  rechazados: number;
   pendientes: number;
 }) {
-  const total = aprobados + pendientes;
+  const total = aprobados + rechazados + pendientes;
+  const tramos = [
+    { label: "Aprobados", value: aprobados, color: "bg-green-500" },
+    { label: "Rechazados", value: rechazados, color: "bg-destructive" },
+    { label: "Pendientes", value: pendientes, color: "bg-yellow-500" },
+  ];
   return (
     <div className="space-y-3">
       <div className="flex h-3 w-full gap-0.5 overflow-hidden rounded-full bg-muted">
-        {aprobados > 0 && (
-          <div
-            className="bg-green-500"
-            style={{ width: `${(aprobados / total) * 100}%` }}
-            title={`Aprobados: ${aprobados}`}
-          />
-        )}
-        {pendientes > 0 && (
-          <div
-            className="bg-yellow-500"
-            style={{ width: `${(pendientes / total) * 100}%` }}
-            title={`Pendientes: ${pendientes}`}
-          />
+        {tramos.map(
+          (t) =>
+            t.value > 0 && (
+              <div
+                key={t.label}
+                className={t.color}
+                style={{ width: `${(t.value / total) * 100}%` }}
+                title={`${t.label}: ${t.value}`}
+              />
+            )
         )}
       </div>
       <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-        <span className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
-          Aprobados
-          <span className="font-semibold tabular-nums">{aprobados}</span>
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
-          Pendientes
-          <span className="font-semibold tabular-nums">{pendientes}</span>
-        </span>
+        {tramos.map((t) => (
+          <span key={t.label} className="flex items-center gap-2">
+            <span className={cn("h-2.5 w-2.5 rounded-full", t.color)} />
+            {t.label}
+            <span className="font-semibold tabular-nums">{t.value}</span>
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -161,7 +163,7 @@ export function ReporteView({ data }: { data: ReporteCambiosComision }) {
   return (
     <div className="space-y-6">
       {/* Resumen general */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatTile
           label="Estudiantes que migran"
           value={totals.estudiantes}
@@ -179,6 +181,12 @@ export function ReporteView({ data }: { data: ReporteCambiosComision }) {
           value={totals.aprobados}
           icon={CheckCircle2}
           accent="text-green-500"
+        />
+        <StatTile
+          label="Rechazados"
+          value={totals.rechazados}
+          icon={XCircle}
+          accent="text-destructive"
         />
         <StatTile
           label="Pendientes"
@@ -203,6 +211,7 @@ export function ReporteView({ data }: { data: ReporteCambiosComision }) {
         <CardContent>
           <EstadoSplit
             aprobados={totals.aprobados}
+            rechazados={totals.rechazados}
             pendientes={totals.pendientes}
           />
         </CardContent>
@@ -227,7 +236,9 @@ export function ReporteView({ data }: { data: ReporteCambiosComision }) {
                 label={c.carrera}
                 sub={`${c.cambios} ${
                   c.cambios === 1 ? "cambio" : "cambios"
-                } · ${c.aprobados} aprob. · ${c.pendientes} pend.`}
+                } · ${c.aprobados} aprob. · ${c.rechazados} rech. · ${
+                  c.pendientes
+                } pend.`}
                 value={c.estudiantes}
                 max={maxCarrera}
                 color={c.color}
@@ -286,6 +297,7 @@ export function ReporteView({ data }: { data: ReporteCambiosComision }) {
                 <TableHead>Asignatura</TableHead>
                 <TableHead className="text-right">Estud.</TableHead>
                 <TableHead className="text-right">Aprob.</TableHead>
+                <TableHead className="text-right">Rech.</TableHead>
                 <TableHead className="text-right">Pend.</TableHead>
                 <TableHead>Migraciones (origen → destino)</TableHead>
               </TableRow>
@@ -312,6 +324,9 @@ export function ReporteView({ data }: { data: ReporteCambiosComision }) {
                   </TableCell>
                   <TableCell className="text-right tabular-nums text-green-600 dark:text-green-500">
                     {a.aprobados}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-destructive">
+                    {a.rechazados}
                   </TableCell>
                   <TableCell className="text-right tabular-nums text-yellow-600 dark:text-yellow-500">
                     {a.pendientes}

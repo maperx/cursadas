@@ -15,12 +15,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/use-toast";
-import { ArrowRight, Check, FileText, Lock, Unlock, X } from "lucide-react";
-import {
-  aprobarCambioComisionAsignatura,
-  reabrirCambioComisionAsignatura,
-  updateEstadoSolicitud,
-} from "@/actions/regimen-especial";
+import { ArrowRight, Check, FileText, X } from "lucide-react";
+import { updateEstadoSolicitud } from "@/actions/regimen-especial";
 import {
   CAMBIO_ESTADO_LABELS,
   DOC_TIPO_LABELS,
@@ -55,6 +51,7 @@ export type Solicitud = {
     comisionActual: string | null;
     comisionDeseada: string | null;
     comisionEstado: RegimenCambioEstado;
+    comisionObservaciones: string | null;
   }[];
   documentos: { id: string; tipo: RegimenDocTipo; originalName: string }[];
 };
@@ -68,6 +65,15 @@ const ESTADO_VARIANT: Record<
   rechazada: "destructive",
 };
 
+const CAMBIO_VARIANT: Record<
+  RegimenCambioEstado,
+  "warning" | "success" | "destructive"
+> = {
+  pendiente: "warning",
+  aprobado: "success",
+  rechazado: "destructive",
+};
+
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -77,72 +83,25 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
+// Los cambios de comisión se resuelven en su propio diálogo
+// (CambiosComisionDialog): acá se muestran solo como referencia.
 export function RegimenReviewDialog({
   children,
   solicitud,
   canResolverSolicitudes,
-  canResolverCambios,
 }: {
   children: React.ReactNode;
   solicitud: Solicitud;
   /** Puede aprobar/rechazar la solicitud. */
   canResolverSolicitudes: boolean;
-  /** Puede aprobar/reabrir los cambios de comisión. */
-  canResolverCambios: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [nota, setNota] = useState(solicitud.observacionesRevision || "");
   const [loading, setLoading] = useState<"aprobada" | "rechazada" | null>(null);
-  const [cambioLoadingId, setCambioLoadingId] = useState<string | null>(null);
 
   const cambiosComision = solicitud.asignaturas.filter(esCambioComision);
   const resumen = resumenCambiosComision(solicitud);
-
-  const handleCambioComision = async (
-    asignaturaId: string,
-    action: "aprobar" | "reabrir"
-  ) => {
-    setCambioLoadingId(asignaturaId);
-    try {
-      const result =
-        action === "aprobar"
-          ? await aprobarCambioComisionAsignatura(asignaturaId)
-          : await reabrirCambioComisionAsignatura(asignaturaId);
-      if (result.error) {
-        toast({
-          title: "Error",
-          description: result.error,
-          variant: "destructive",
-        });
-      } else {
-        // Al aprobar el último cambio pendiente se notifica al estudiante.
-        const emailEnviado = "emailEnviado" in result && result.emailEnviado;
-        toast({
-          title:
-            action === "aprobar"
-              ? "Cambio de comisión aprobado"
-              : "Edición reabierta",
-          description:
-            action === "reabrir"
-              ? "El estudiante puede volver a editar esta comisión."
-              : emailEnviado
-              ? "No quedan cambios pendientes: se notificó al estudiante por email."
-              : "El estudiante ya no puede modificar esta comisión.",
-          variant: "success",
-        });
-        router.refresh();
-      }
-    } catch {
-      toast({
-        title: "Error",
-        description: "No se pudo actualizar el cambio de comisión",
-        variant: "destructive",
-      });
-    } finally {
-      setCambioLoadingId(null);
-    }
-  };
 
   const handleDecision = async (estado: "aprobada" | "rechazada") => {
     if (estado === "rechazada" && !nota.trim()) {
@@ -278,6 +237,9 @@ export function RegimenReviewDialog({
                     {resumen.aprobados}/{resumen.pedidos} aprobados
                   </Badge>
                 )}
+                <span className="text-xs text-muted-foreground">
+                  Se resuelven desde “Cambios de comisión”
+                </span>
               </div>
 
               {cambiosComision.length === 0 ? (
@@ -286,67 +248,27 @@ export function RegimenReviewDialog({
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {cambiosComision.map((a) => {
-                    const aprobado = a.comisionEstado === "aprobado";
-                    const loading = cambioLoadingId === a.id;
-                    return (
-                      <div
-                        key={a.id}
-                        className="flex flex-wrap items-center gap-2 text-sm"
-                      >
+                  {cambiosComision.map((a) => (
+                    <div key={a.id} className="text-sm">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">{a.name}:</span>
                         <span>{a.comisionActual || "—"}</span>
                         <ArrowRight className="h-4 w-4 text-muted-foreground" />
                         <span>{a.comisionDeseada || "—"}</span>
                         <Badge
-                          variant={aprobado ? "success" : "warning"}
+                          variant={CAMBIO_VARIANT[a.comisionEstado]}
                           className="ml-1"
                         >
                           {CAMBIO_ESTADO_LABELS[a.comisionEstado]}
                         </Badge>
-                        <div className="ml-auto">
-                          {!canResolverCambios ? null : aprobado ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                handleCambioComision(a.id, "reabrir")
-                              }
-                              disabled={loading}
-                            >
-                              {loading ? (
-                                <Spinner size="sm" />
-                              ) : (
-                                <>
-                                  <Unlock className="h-4 w-4 mr-1" />
-                                  Reabrir
-                                </>
-                              )}
-                            </Button>
-                          ) : (
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() =>
-                                handleCambioComision(a.id, "aprobar")
-                              }
-                              disabled={loading}
-                            >
-                              {loading ? (
-                                <Spinner size="sm" />
-                              ) : (
-                                <>
-                                  <Lock className="h-4 w-4 mr-1" />
-                                  Aprobar
-                                </>
-                              )}
-                            </Button>
-                          )}
-                        </div>
                       </div>
-                    );
-                  })}
+                      {a.comisionObservaciones && (
+                        <p className="whitespace-pre-line text-xs text-muted-foreground">
+                          {a.comisionObservaciones}
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

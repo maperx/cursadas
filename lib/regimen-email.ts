@@ -5,10 +5,12 @@ import { db } from "./db";
 import { regimenEmailPlantillas } from "./db/schema";
 import { sendEmail, type EmailAttachment } from "./email";
 import {
+  CAMBIO_ESTADO_LABELS,
   MOTIVO_LABELS,
   REGIMEN_EMAIL_DEFAULTS,
   esCambioComision,
   renderPlantilla,
+  type RegimenCambioEstado,
   type RegimenEmailTipo,
   type RegimenMotivo,
 } from "./regimen-especial";
@@ -105,6 +107,8 @@ type SolicitudParaEmail = {
   asignaturas: {
     comisionActual: string | null;
     comisionDeseada: string | null;
+    comisionEstado: RegimenCambioEstado;
+    comisionObservaciones: string | null;
     asignatura: { name: string };
   }[];
 };
@@ -127,14 +131,16 @@ export function varsDeSolicitud(solicitud: SolicitudParaEmail): RegimenEmailVars
       }`
   );
 
-  const cambios = solicitud.asignaturas
-    .filter(esCambioComision)
-    .map(
-      (a) =>
-        `${a.asignatura.name}: comisión ${a.comisionActual || "—"} → ${
-          a.comisionDeseada || "—"
-        }`
-    );
+  // Cada cambio se lista con su resultado y, si quien lo resolvió la cargó, la
+  // observación: es lo único que explica al estudiante un rechazo.
+  const cambios = solicitud.asignaturas.filter(esCambioComision).map((a) => {
+    const linea = `${a.asignatura.name}: comisión ${a.comisionActual || "—"} → ${
+      a.comisionDeseada || "—"
+    } (${CAMBIO_ESTADO_LABELS[a.comisionEstado].toLowerCase()})`;
+    return a.comisionObservaciones
+      ? `${linea} - ${a.comisionObservaciones}`
+      : linea;
+  });
 
   const texto: Record<string, string> = {
     nombre: `${solicitud.apellidos}, ${solicitud.nombres}`,

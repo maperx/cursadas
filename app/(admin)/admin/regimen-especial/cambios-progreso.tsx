@@ -1,20 +1,21 @@
 "use client";
 
-import { CheckCircle2, Clock, X } from "lucide-react";
+import { CheckCircle2, Clock, X, XCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { CambiosFiltro } from "@/lib/regimen-especial";
 
 export type ProgresoCambios = {
-  /** Cambios pedidos por los estudiantes (aprobados + pendientes). */
+  /** Cambios pedidos por los estudiantes (resueltos + pendientes). */
   pedidos: number;
   aprobados: number;
+  rechazados: number;
   pendientes: number;
-  /** Solicitudes que tienen al menos un cambio pendiente de aprobación. */
+  /** Solicitudes que tienen al menos un cambio pendiente de resolución. */
   solicitudesPendientes: number;
-  /** Solicitudes con todos sus cambios ya aprobados. */
-  solicitudesAprobadas: number;
+  /** Solicitudes con todos sus cambios ya resueltos. */
+  solicitudesResueltas: number;
 };
 
 // Chip clickeable que aplica (o limpia) uno de los filtros de la tabla.
@@ -55,12 +56,13 @@ export function CambiosProgreso({
   filtro: CambiosFiltro | undefined;
   onFiltroChange: (filtro: CambiosFiltro | undefined) => void;
 }) {
-  const { pedidos, aprobados, pendientes } = progreso;
+  const { pedidos, aprobados, rechazados, pendientes } = progreso;
 
   // Sin cambios cargados no hay progreso que mostrar.
   if (pedidos === 0) return null;
 
-  const pct = Math.round((aprobados / pedidos) * 100);
+  const resueltos = aprobados + rechazados;
+  const pct = Math.round((resueltos / pedidos) * 100);
   // El chip activo se vuelve a clickear para limpiar el filtro.
   const toggle = (value: CambiosFiltro) =>
     onFiltroChange(filtro === value ? undefined : value);
@@ -72,24 +74,29 @@ export function CambiosProgreso({
           <p className="text-sm font-medium">Cambios de comisión</p>
           <p className="text-sm text-muted-foreground">
             <span className="font-semibold tabular-nums text-foreground">
-              {aprobados}
+              {resueltos}
             </span>{" "}
-            de <span className="tabular-nums">{pedidos}</span> aprobados (
+            de <span className="tabular-nums">{pedidos}</span> resueltos (
             <span className="tabular-nums">{pct}%</span>)
           </p>
         </div>
 
+        {/* Dos tramos: lo aprobado y lo rechazado, sobre el total pedido. */}
         <div
-          className="h-2.5 w-full overflow-hidden rounded-full bg-muted"
+          className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted"
           role="progressbar"
           aria-valuenow={pct}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-label="Cambios de comisión aprobados"
+          aria-label="Cambios de comisión resueltos"
         >
           <div
-            className="h-full rounded-full bg-green-500 transition-all"
-            style={{ width: `${pct}%` }}
+            className="h-full bg-green-500 transition-all"
+            style={{ width: `${(aprobados / pedidos) * 100}%` }}
+          />
+          <div
+            className="h-full bg-destructive transition-all"
+            style={{ width: `${(rechazados / pedidos) * 100}%` }}
           />
         </div>
 
@@ -119,10 +126,22 @@ export function CambiosProgreso({
             <span className="tabular-nums">{aprobados}</span> aprobado
             {aprobados === 1 ? "" : "s"}
             <span className="text-muted-foreground">
-              · {progreso.solicitudesAprobadas} solicitud
-              {progreso.solicitudesAprobadas === 1 ? "" : "es"} al día
+              · {progreso.solicitudesResueltas} solicitud
+              {progreso.solicitudesResueltas === 1 ? "" : "es"} al día
             </span>
           </FiltroChip>
+
+          {rechazados > 0 && (
+            <FiltroChip
+              active={filtro === "rechazados"}
+              onClick={() => toggle("rechazados")}
+              className="text-destructive"
+            >
+              <XCircle className="h-3.5 w-3.5" />
+              <span className="tabular-nums">{rechazados}</span> rechazado
+              {rechazados === 1 ? "" : "s"}
+            </FiltroChip>
+          )}
 
           {filtro && (
             <Button

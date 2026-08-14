@@ -101,17 +101,23 @@ export const regimenAsignaturas = pgTable(
     // aprobada. Solo números; vacío = sin cambio para esa asignatura.
     comisionActual: text("comision_actual"),
     comisionDeseada: text("comision_deseada"),
-    // El admin aprueba el cambio de comisión de forma independiente por cada
-    // asignatura. Mientras está "pendiente" el estudiante puede editarlo; al
-    // pasar a "aprobado" queda bloqueado para esa asignatura.
+    // El cambio de comisión se resuelve de forma independiente por cada
+    // asignatura, y lo hace un usuario distinto del que aprueba la solicitud
+    // (permiso `regimen.resolverCambios`). Mientras está "pendiente" el
+    // estudiante puede editarlo; al aprobarlo o rechazarlo queda bloqueado para
+    // esa asignatura hasta que se lo reabra.
     comisionEstado: regimenCambioEstadoEnum("comision_estado")
       .notNull()
       .default("pendiente"),
-    comisionAprobadoBy: text("comision_aprobado_by").references(
-      () => user.id,
-      { onDelete: "set null" }
-    ),
-    comisionAprobadoAt: timestamp("comision_aprobado_at"),
+    // Nota de quien resolvió el cambio; obligatoria para rechazar. La ve el
+    // estudiante y viaja en el email de cambios resueltos.
+    comisionObservaciones: text("comision_observaciones"),
+    // Quién y cuándo resolvió el cambio (aprobado o rechazado). Las columnas
+    // conservan el nombre original, de cuando la única resolución era aprobar.
+    comisionResueltoBy: text("comision_aprobado_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    comisionResueltoAt: timestamp("comision_aprobado_at"),
   },
   (t) => ({
     uniqueSolicitudAsignatura: unique().on(t.solicitudId, t.asignaturaId),

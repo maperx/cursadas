@@ -12,6 +12,8 @@ export type PermissionAction =
   | "view"
   | "edit"
   | "delete"
+  | "editEventos"
+  | "deleteEventos"
   | "resolverSolicitudes"
   | "resolverCambios"
   | "configurarEmails";
@@ -64,7 +66,21 @@ export const RESOURCES: ResourceDef[] = [
     label: "Cursadas",
     href: "/admin/cursadas",
     perSede: true,
-    actions: VER_EDITAR_BORRAR,
+    actions: [
+      { key: "view", label: "Ver" },
+      { key: "edit", label: "Editar", hint: "Incluye crear" },
+      { key: "delete", label: "Borrar" },
+      {
+        key: "editEventos",
+        label: "Editar solo eventos",
+        hint: "Crear y editar únicamente cursadas con el tilde Evento",
+      },
+      {
+        key: "deleteEventos",
+        label: "Borrar solo eventos",
+        hint: "Borrar únicamente cursadas con el tilde Evento",
+      },
+    ],
   },
   {
     key: "inscripciones",
@@ -89,7 +105,7 @@ export const RESOURCES: ResourceDef[] = [
       {
         key: "resolverCambios",
         label: "Resolver cambios de comisión",
-        hint: "Aprobar o reabrir cambios de comisión",
+        hint: "Aprobar, rechazar o reabrir cambios de comisión",
       },
       {
         key: "configurarEmails",
@@ -167,6 +183,32 @@ export function can(
   }
 
   return (perms.resources[resource] ?? []).includes(action);
+}
+
+/** Permiso acotado a eventos equivalente a cada acción sobre cursadas. */
+const ACCION_SOLO_EVENTOS = {
+  edit: "editEventos",
+  delete: "deleteEventos",
+} as const satisfies Record<string, PermissionAction>;
+
+export type AccionCursada = keyof typeof ACCION_SOLO_EVENTOS;
+
+/**
+ * ¿Puede el usuario editar o borrar una cursada concreta de esa sede?
+ *
+ * Quien tiene el permiso pleno puede con cualquiera; quien solo tiene el
+ * permiso acotado a eventos únicamente con las que llevan el tilde Evento.
+ */
+export function canCursada(
+  perms: PermissionSet | null | undefined,
+  action: AccionCursada,
+  sedeId: string | null | undefined,
+  esEvento: boolean
+): boolean {
+  if (can(perms, "cursadas", action, sedeId)) return true;
+  return (
+    esEvento && can(perms, "cursadas", ACCION_SOLO_EVENTOS[action], sedeId)
+  );
 }
 
 /** Sedes en las que el usuario tiene `action` sobre cursadas. */

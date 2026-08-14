@@ -12,7 +12,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, and, ne } from "drizzle-orm";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth-server";
+import { requireCursadaPermission, requirePermission } from "@/lib/auth-server";
 import { sedesCon } from "@/lib/permissions";
 
 // La sede de una cursada es la de su aula: los permisos de cursadas se
@@ -25,12 +25,16 @@ async function sedeDeAula(aulaId: string) {
   return aula?.sedeId ?? null;
 }
 
-async function sedeDeCursada(cursadaId: string) {
+// Además de la sede, el permiso depende de si la cursada es un evento: hay
+// usuarios habilitados únicamente sobre las que llevan el tilde Evento.
+async function cursadaParaPermisos(cursadaId: string) {
   const cursada = await db.query.cursadas.findFirst({
     where: eq(cursadas.id, cursadaId),
+    columns: { examen: true },
     with: { aula: { columns: { sedeId: true } } },
   });
-  return cursada?.aula.sedeId ?? null;
+  if (!cursada) return null;
+  return { sedeId: cursada.aula.sedeId, examen: cursada.examen };
 }
 
 
@@ -337,15 +341,36 @@ function isDateInRecesos(
   return recesos.some((r) => date >= r.startDate && date <= r.endDate);
 }
 
+/**
+ * ¿Se solapan dos periodos? Un extremo nulo se interpreta como abierto (sin
+ * límite), no como "solapa siempre": una asignatura sin fecha de fin sigue
+ * vigente, pero una que terminó antes de que empiece la otra no se solapa.
+ */
 function datesOverlap(
   startA: string | null,
   endA: string | null,
   startB: string | null,
   endB: string | null
 ): boolean {
-  // If any date is missing, assume overlap (conservative)
-  if (!startA || !endA || !startB || !endB) return true;
-  return startA <= endB && startB <= endA;
+  if (startA && endB && startA > endB) return false;
+  if (startB && endA && startB > endA) return false;
+  return true;
+}
+
+/**
+ * Periodo del calendario que ocupa una cursada: el de su asignatura si es
+ * semanal, o su fecha puntual si es un evento de un solo día.
+ */
+function periodoDeCursada(
+  weeklyRepetition: boolean,
+  eventDate: string | null,
+  asignaturaStartDate: string | null | undefined,
+  asignaturaEndDate: string | null | undefined
+): { start: string | null; end: string | null } {
+  if (weeklyRepetition) {
+    return { start: asignaturaStartDate ?? null, end: asignaturaEndDate ?? null };
+  }
+  return { start: eventDate, end: eventDate };
 }
 
 function getDayOfWeekFromDate(dateStr: string): number {
@@ -409,8 +434,38 @@ async function checkAulaConflict(
   const newStart = timeToMinutes(startTime);
   const newEnd = newStart + durationMinutes;
   const warnings: string[] = [];
+  const today = new Date().toISOString().slice(0, 10);
+
+  const nuevoPeriodo = periodoDeCursada(
+    weeklyRepetition,
+    eventDate ?? null,
+    newAsignatura?.startDate,
+    newAsignatura?.endDate
+  );
 
   for (const existing of existingCursadas) {
+    const existingPeriodo = periodoDeCursada(
+      existing.weeklyRepetition,
+      existing.eventDate,
+      existing.asignatura.startDate,
+      existing.asignatura.endDate
+    );
+
+    // Una cursada que ya terminó no ocupa el aula: no puede generar conflicto.
+    if (existingPeriodo.end && existingPeriodo.end < today) continue;
+
+    // Los periodos de ambas cursadas tienen que solaparse en el calendario.
+    if (
+      !datesOverlap(
+        nuevoPeriodo.start,
+        nuevoPeriodo.end,
+        existingPeriodo.start,
+        existingPeriodo.end
+      )
+    ) {
+      continue;
+    }
+
     // Determine if the two cursadas share any day
     let hasSharedDay = false;
     let conflictLabel = "";
@@ -432,9 +487,6 @@ async function checkAulaConflict(
       if (!eventDate) continue;
       const eventDayOfWeek = getDayOfWeekFromDate(eventDate);
       if (!existing.daysOfWeek.includes(eventDayOfWeek)) continue;
-      // Also check if eventDate falls within existing's asignatura date range
-      if (existing.asignatura.startDate && eventDate < existing.asignatura.startDate) continue;
-      if (existing.asignatura.endDate && eventDate > existing.asignatura.endDate) continue;
       // Skip conflict if eventDate falls within a receso of existing's asignatura
       if (isDateInRecesos(eventDate, existing.asignatura.recesos)) continue;
       hasSharedDay = true;
@@ -444,9 +496,6 @@ async function checkAulaConflict(
       if (!existing.eventDate) continue;
       const existingDayOfWeek = getDayOfWeekFromDate(existing.eventDate);
       if (!daysOfWeek.includes(existingDayOfWeek)) continue;
-      // Also check if existing's eventDate falls within new's asignatura date range
-      if (newAsignatura?.startDate && existing.eventDate < newAsignatura.startDate) continue;
-      if (newAsignatura?.endDate && existing.eventDate > newAsignatura.endDate) continue;
       // Skip conflict if existing's eventDate falls within a receso of new's asignatura
       if (newAsignatura && isDateInRecesos(existing.eventDate, newAsignatura.recesos)) continue;
       hasSharedDay = true;
@@ -460,17 +509,6 @@ async function checkAulaConflict(
 
     // Check time overlap
     if (newStart < existingEnd && existingStart < newEnd) {
-      // For two weekly cursadas, also check asignatura date period overlap
-      if (weeklyRepetition && existing.weeklyRepetition) {
-        const periodsOverlap = datesOverlap(
-          newAsignatura?.startDate ?? null,
-          newAsignatura?.endDate ?? null,
-          existing.asignatura.startDate,
-          existing.asignatura.endDate
-        );
-        if (!periodsOverlap) continue;
-      }
-
       const message = `El aula "${existing.aula.name}" ya está ocupada por "${existing.asignatura.name}" el ${conflictLabel} en ese horario`;
 
       // If this is an examen, collect as warning instead of blocking
@@ -517,7 +555,7 @@ export async function createCursada(formData: FormData) {
   if (!sedeDestino) {
     return { error: { _form: ["El aula seleccionada no existe"] } };
   }
-  await requirePermission("cursadas", "edit", sedeDestino);
+  await requireCursadaPermission("edit", sedeDestino, validated.data.examen);
 
   const sedeError = await checkCarreraEnSedeDelAula(
     validated.data.aulaId,
@@ -601,18 +639,25 @@ export async function updateCursada(id: string, formData: FormData) {
     return { error: validated.error.flatten().fieldErrors };
   }
 
-  const sedeActual = await sedeDeCursada(id);
-  if (!sedeActual) {
+  const actual = await cursadaParaPermisos(id);
+  if (!actual) {
     return { error: { _form: ["La cursada no existe"] } };
   }
-  await requirePermission("cursadas", "edit", sedeActual);
+  // Hace falta poder con la cursada como está y como queda: quien solo maneja
+  // eventos no puede tocar una cursada común ni quitarle el tilde Evento.
+  await requireCursadaPermission("edit", actual.sedeId, actual.examen);
+  await requireCursadaPermission(
+    "edit",
+    actual.sedeId,
+    validated.data.examen
+  );
 
   const sedeDestino = await sedeDeAula(validated.data.aulaId);
   if (!sedeDestino) {
     return { error: { _form: ["El aula seleccionada no existe"] } };
   }
   // Mover una cursada a otra sede exige permiso también en la sede destino.
-  await requirePermission("cursadas", "edit", sedeDestino);
+  await requireCursadaPermission("edit", sedeDestino, validated.data.examen);
 
   const sedeError = await checkCarreraEnSedeDelAula(
     validated.data.aulaId,
@@ -678,7 +723,11 @@ export async function updateCursada(id: string, formData: FormData) {
 }
 
 export async function deleteCursada(id: string) {
-  await requirePermission("cursadas", "delete", await sedeDeCursada(id));
+  const actual = await cursadaParaPermisos(id);
+  if (!actual) {
+    return { error: "La cursada no existe" };
+  }
+  await requireCursadaPermission("delete", actual.sedeId, actual.examen);
 
   await db.delete(cursadas).where(eq(cursadas.id, id));
   revalidatePath("/admin/cursadas");
@@ -708,7 +757,11 @@ export async function suspendCursadaRepeticion(input: {
   }
 
   const { cursadaId, date, observacion } = validated.data;
-  await requirePermission("cursadas", "edit", await sedeDeCursada(cursadaId));
+  const actual = await cursadaParaPermisos(cursadaId);
+  if (!actual) {
+    return { error: { _form: ["La cursada no existe"] } };
+  }
+  await requireCursadaPermission("edit", actual.sedeId, actual.examen);
 
   await db
     .insert(cursadaSuspensiones)
@@ -735,11 +788,11 @@ export async function removeCursadaSuspension(input: {
     return { error: validated.error.flatten().fieldErrors };
   }
 
-  await requirePermission(
-    "cursadas",
-    "edit",
-    await sedeDeCursada(validated.data.cursadaId)
-  );
+  const actual = await cursadaParaPermisos(validated.data.cursadaId);
+  if (!actual) {
+    return { error: { _form: ["La cursada no existe"] } };
+  }
+  await requireCursadaPermission("edit", actual.sedeId, actual.examen);
 
   await db
     .delete(cursadaSuspensiones)

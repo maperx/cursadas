@@ -62,6 +62,11 @@ interface CursadaDialogProps {
   asignaturas: Asignatura[];
   docentes: Docente[];
   aulas: Aula[];
+  /**
+   * Sedes donde el usuario solo puede crear o editar cursadas con el tilde
+   * Evento: ahí el tilde queda puesto y bloqueado.
+   */
+  sedesSoloEventos: string[];
   cursada?: {
     id: string;
     aulaId: string;
@@ -95,6 +100,7 @@ export function CursadaDialog({
   asignaturas,
   docentes,
   aulas,
+  sedesSoloEventos,
   cursada,
 }: CursadaDialogProps) {
   const router = useRouter();
@@ -170,6 +176,13 @@ export function CursadaDialog({
     return aulas.filter((a) => a.sedeId === selectedSede);
   }, [aulas, selectedSede]);
 
+  // En una sede habilitada solo para eventos el tilde va puesto y no se saca.
+  const soloEventos = useMemo(
+    () => !!selectedSede && sedesSoloEventos.includes(selectedSede),
+    [selectedSede, sedesSoloEventos]
+  );
+  const esEvento = examen || soloEventos;
+
   const buildFormData = (form: HTMLFormElement): FormData => {
     const formData = new FormData(form);
     formData.set("carreraId", selectedCarrera);
@@ -179,7 +192,7 @@ export function CursadaDialog({
     formData.set("docenteIds", JSON.stringify(selectedDocentes));
     formData.set("weeklyRepetition", weeklyRepetition.toString());
     formData.set("eventDate", weeklyRepetition ? "" : eventDate);
-    formData.set("examen", examen.toString());
+    formData.set("examen", esEvento.toString());
     formData.set("startTime", startTime);
     formData.set("durationMinutes", calculatedDuration.toString());
     return formData;
@@ -461,15 +474,20 @@ export function CursadaDialog({
             <div className="flex items-center gap-2">
               <Checkbox
                 id="examen"
-                checked={examen}
+                checked={esEvento}
                 onCheckedChange={(checked) =>
                   setExamen(checked as boolean)
                 }
-                disabled={isLoading}
+                disabled={isLoading || soloEventos}
               />
               <label htmlFor="examen" className="text-sm cursor-pointer">
                 Es evento
               </label>
+              {soloEventos && (
+                <span className="text-xs text-muted-foreground">
+                  En esta sede solo podés cargar eventos
+                </span>
+              )}
             </div>
           </div>
 

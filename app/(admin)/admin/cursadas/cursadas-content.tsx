@@ -76,10 +76,14 @@ interface CursadasContentProps {
   asignaturas: Asignatura[];
   docentes: Docente[];
   aulas: Aula[];
-  /** Sedes donde el usuario puede editar cursadas. */
+  /** Sedes donde el usuario puede editar cualquier cursada. */
   sedesEdit: string[];
-  /** Sedes donde el usuario puede borrar cursadas. */
+  /** Sedes donde el usuario puede borrar cualquier cursada. */
   sedesDelete: string[];
+  /** Sedes donde puede editar cursadas con el tilde Evento (incluye sedesEdit). */
+  sedesEditEventos: string[];
+  /** Sedes donde puede borrar cursadas con el tilde Evento (incluye sedesDelete). */
+  sedesDeleteEventos: string[];
 }
 
 export function CursadasContent({
@@ -90,6 +94,8 @@ export function CursadasContent({
   aulas,
   sedesEdit,
   sedesDelete,
+  sedesEditEventos,
+  sedesDeleteEventos,
 }: CursadasContentProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -100,19 +106,38 @@ export function CursadasContent({
 
   const editables = useMemo(() => new Set(sedesEdit), [sedesEdit]);
   const borrables = useMemo(() => new Set(sedesDelete), [sedesDelete]);
+  const editablesEventos = useMemo(
+    () => new Set(sedesEditEventos),
+    [sedesEditEventos]
+  );
+  const borrablesEventos = useMemo(
+    () => new Set(sedesDeleteEventos),
+    [sedesDeleteEventos]
+  );
+  // Con permiso acotado a eventos solo se puede sobre las cursadas tildadas.
   const canEdit = useCallback(
-    (sedeId: string) => editables.has(sedeId),
-    [editables]
+    (sedeId: string, esEvento: boolean) =>
+      editables.has(sedeId) || (esEvento && editablesEventos.has(sedeId)),
+    [editables, editablesEventos]
   );
   const canDelete = useCallback(
-    (sedeId: string) => borrables.has(sedeId),
-    [borrables]
+    (sedeId: string, esEvento: boolean) =>
+      borrables.has(sedeId) || (esEvento && borrablesEventos.has(sedeId)),
+    [borrables, borrablesEventos]
   );
 
-  // El diálogo de alta/edición solo puede ofrecer aulas de sedes editables.
+  // El diálogo de alta/edición solo puede ofrecer aulas de sedes editables,
+  // aunque sea solo para eventos.
   const aulasEditables = useMemo(
-    () => aulas.filter((aula) => editables.has(aula.sedeId)),
-    [aulas, editables]
+    () => aulas.filter((aula) => editablesEventos.has(aula.sedeId)),
+    [aulas, editablesEventos]
+  );
+
+  // Sedes donde lo único que puede crear o editar son eventos: en ellas el
+  // diálogo deja el tilde Evento puesto y bloqueado.
+  const sedesSoloEventos = useMemo(
+    () => sedesEditEventos.filter((id) => !editables.has(id)),
+    [sedesEditEventos, editables]
   );
 
   const sedes = useMemo(() => {
@@ -159,6 +184,7 @@ export function CursadasContent({
         asignaturas={asignaturas}
         docentes={docentes}
         aulasEditables={aulasEditables}
+        sedesSoloEventos={sedesSoloEventos}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
       />
@@ -231,6 +257,7 @@ export function CursadasContent({
           asignaturas={asignaturas}
           docentes={docentes}
           aulasEditables={aulasEditables}
+          sedesSoloEventos={sedesSoloEventos}
           canEdit={canEdit}
           canDelete={canDelete}
         />
@@ -244,6 +271,7 @@ export function CursadasContent({
           asignaturas={asignaturas}
           docentes={docentes}
           aulasEditables={aulasEditables}
+          sedesSoloEventos={sedesSoloEventos}
           canEdit={canEdit}
           canDelete={canDelete}
         />
@@ -257,6 +285,7 @@ export function CursadasContent({
           asignaturas={asignaturas}
           docentes={docentes}
           aulasEditables={aulasEditables}
+          sedesSoloEventos={sedesSoloEventos}
           canEdit={canEdit}
           canDelete={canDelete}
         />
@@ -271,6 +300,7 @@ export function CursadasContent({
           docentes={docentes}
           aulas={aulas}
           aulasEditables={aulasEditables}
+          sedesSoloEventos={sedesSoloEventos}
           canEdit={canEdit}
           canDelete={canDelete}
         />
