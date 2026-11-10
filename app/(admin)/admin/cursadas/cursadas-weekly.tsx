@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -10,6 +9,12 @@ import { SuspensionDialog } from "./suspension-dialog";
 import { ChevronLeft, ChevronRight, Pencil, Trash2, Ban } from "lucide-react";
 import { DeleteDialog } from "@/components/admin/delete-dialog";
 import { deleteCursada } from "@/actions/cursadas";
+import {
+  addDays,
+  cursadasDelDia,
+  getMonday,
+  toDateStr,
+} from "@/lib/cursadas-schedule";
 
 type Carrera = {
   id: string;
@@ -46,7 +51,13 @@ type Cursada = {
   updatedAt: Date;
   aula: Aula;
   carrera: Carrera;
-  asignatura: { id: string; name: string; startDate: string | null; endDate: string | null };
+  asignatura: {
+    id: string;
+    name: string;
+    startDate: string | null;
+    endDate: string | null;
+    recesos?: { startDate: string; endDate: string }[];
+  };
   cursadaDocentes: {
     user: { id: string; name: string; email: string };
   }[];
@@ -82,32 +93,12 @@ interface CursadasWeeklyProps {
 }
 
 const PIXELS_PER_MINUTE = 1.5;
-const DAYS = [1, 2, 3, 4, 5, 6]; // Lunes a Sábado
+// Lunes a Domingo; el domingo solo se muestra si esa semana hay algo.
+const ALL_DAYS = [1, 2, 3, 4, 5, 6, 0];
 
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
-}
-
-function getMonday(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay(); // 0=Sun, 1=Mon, ...
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d;
-}
-
-function addDays(date: Date, n: number): Date {
-  const result = new Date(date);
-  result.setDate(result.getDate() + n);
-  return result;
-}
-
-function toDateStr(date: Date): string {
-  const y = date.getFullYear();
-  const m = (date.getMonth() + 1).toString().padStart(2, "0");
-  const d = date.getDate().toString().padStart(2, "0");
-  return `${y}-${m}-${d}`;
 }
 
 function formatShortDate(date: Date): string {
@@ -178,27 +169,26 @@ export function CursadasWeekly({
   canDelete,
 }: CursadasWeeklyProps) {
   const weekMonday = getMonday(selectedDate);
-  const weekSaturday = addDays(weekMonday, 5);
-  const weekMondayStr = toDateStr(weekMonday);
-  const weekSaturdayStr = toDateStr(weekSaturday);
 
-  const activeData = useMemo(() => {
-    return data.filter((c) => {
-      if (c.weeklyRepetition) {
-        // Weekly recurring: show if the week overlaps the asignatura date range
-        const { startDate, endDate } = c.asignatura;
-        if (startDate && weekSaturdayStr < startDate) return false;
-        if (endDate && weekMondayStr > endDate) return false;
-        return true;
-      }
-      // One-time event: show if eventDate falls within this week
-      if (!c.eventDate) return false;
-      return c.eventDate >= weekMondayStr && c.eventDate <= weekSaturdayStr;
+  // Cursadas de cada día de la semana, resueltas sobre la fecha concreta
+  // (período de la asignatura y recesos), igual que las vistas por día.
+  const cursadasByDay = (() => {
+    const monday = weekMonday;
+    const map = new Map<number, Cursada[]>();
+    ALL_DAYS.forEach((day, i) => {
+      map.set(day, cursadasDelDia(data, toDateStr(addDays(monday, i))));
     });
-  }, [data, weekMondayStr, weekSaturdayStr]);
+    return map;
+  })();
 
-  // Date for each day column (Mon=0 offset through Sat=5 offset)
+  const DAYS = ALL_DAYS.filter(
+    (day) => day !== 0 || cursadasByDay.get(0)!.length > 0
+  );
+  const activeData = DAYS.flatMap((day) => cursadasByDay.get(day)!);
+
+  // Fecha de cada columna (Lunes = offset 0 ... Domingo = offset 6)
   const dayDates = DAYS.map((_, i) => addDays(weekMonday, i));
+  const weekEnd = dayDates[dayDates.length - 1];
   const dateStrByDay = new Map<number, string>();
   DAYS.forEach((day, i) => dateStrByDay.set(day, toDateStr(dayDates[i])));
 
@@ -212,9 +202,9 @@ export function CursadasWeekly({
 
   // Week range label
   const weekLabel =
-    weekMonday.getFullYear() === weekSaturday.getFullYear()
-      ? `${formatShortDate(weekMonday)} - ${formatShortDate(weekSaturday)} ${weekSaturday.getFullYear()}`
-      : `${formatShortDate(weekMonday)} ${weekMonday.getFullYear()} - ${formatShortDate(weekSaturday)} ${weekSaturday.getFullYear()}`;
+    weekMonday.getFullYear() === weekEnd.getFullYear()
+      ? `${formatShortDate(weekMonday)} - ${formatShortDate(weekEnd)} ${weekEnd.getFullYear()}`
+      : `${formatShortDate(weekMonday)} ${weekMonday.getFullYear()} - ${formatShortDate(weekEnd)} ${weekEnd.getFullYear()}`;
 
   if (activeData.length === 0) {
     return (
@@ -253,29 +243,6 @@ export function CursadasWeekly({
   const baseHeight = (gridEndMinutes - gridStartMinutes) * PIXELS_PER_MINUTE;
   const hours = Array.from({ length: maxHour - minHour }, (_, i) => minHour + i);
 
-  // Group cursadas by day
-  const cursadasByDay = new Map<number, Cursada[]>();
-  for (const day of DAYS) {
-    cursadasByDay.set(day, []);
-  }
-  for (const cursada of activeData) {
-    if (cursada.weeklyRepetition) {
-      // Weekly recurring: group by daysOfWeek
-      for (const day of cursada.daysOfWeek) {
-        if (DAYS.includes(day)) {
-          cursadasByDay.get(day)!.push(cursada);
-        }
-      }
-    } else if (cursada.eventDate) {
-      // One-time event: compute day column from eventDate
-      const [y, m, d] = cursada.eventDate.split("-").map(Number);
-      const eventDay = new Date(y, m - 1, d).getDay(); // 0=Sun, 1=Mon...
-      if (DAYS.includes(eventDay)) {
-        cursadasByDay.get(eventDay)!.push(cursada);
-      }
-    }
-  }
-
   // Pre-compute layout per day and find the max height needed
   const layoutByDay = new Map<number, Map<string, number>>();
   let totalHeight = baseHeight;
@@ -288,6 +255,8 @@ export function CursadasWeekly({
       if (bottom > totalHeight) totalHeight = bottom;
     }
   }
+
+  const gridTemplateColumns = `80px repeat(${DAYS.length}, 1fr)`;
 
   return (
     <div>
@@ -303,7 +272,10 @@ export function CursadasWeekly({
       <ScrollArea className="rounded-lg border">
         <div className="min-w-[800px]">
           {/* Header */}
-          <div className="sticky top-0 z-10 grid grid-cols-[80px_repeat(6,1fr)] border-b bg-background">
+          <div
+            className="sticky top-0 z-10 grid border-b bg-background"
+            style={{ gridTemplateColumns }}
+          >
             <div className="border-r p-2 text-center text-sm font-medium text-muted-foreground">
               Hora
             </div>
@@ -323,7 +295,7 @@ export function CursadasWeekly({
           </div>
 
           {/* Grid body */}
-          <div className="grid grid-cols-[80px_repeat(6,1fr)]">
+          <div className="grid" style={{ gridTemplateColumns }}>
             {/* Time labels column */}
             <div className="relative border-r" style={{ height: totalHeight }}>
               {hours.map((hour) => {

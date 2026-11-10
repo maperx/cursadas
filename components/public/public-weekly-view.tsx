@@ -1,11 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getDayFullName, formatTime, addMinutesToTime } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  addDays,
+  cursadasDelDia,
+  getMonday,
+  toDateStr,
+} from "@/lib/cursadas-schedule";
 
 type Cursada = {
   id: string;
@@ -40,32 +46,12 @@ interface PublicWeeklyViewProps {
 }
 
 const PIXELS_PER_MINUTE = 1.5;
-const DAYS = [1, 2, 3, 4, 5, 6]; // Lunes a Sábado
+// Lunes a Domingo; el domingo solo se muestra si esa semana hay algo.
+const ALL_DAYS = [1, 2, 3, 4, 5, 6, 0];
 
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
-}
-
-function getMonday(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d;
-}
-
-function addDays(date: Date, n: number): Date {
-  const result = new Date(date);
-  result.setDate(result.getDate() + n);
-  return result;
-}
-
-function toDateStr(date: Date): string {
-  const y = date.getFullYear();
-  const m = (date.getMonth() + 1).toString().padStart(2, "0");
-  const d = date.getDate().toString().padStart(2, "0");
-  return `${y}-${m}-${d}`;
 }
 
 function formatShortDate(date: Date): string {
@@ -126,24 +112,28 @@ export function PublicWeeklyView({ cursadas }: PublicWeeklyViewProps) {
   const [selectedDate, setSelectedDate] = useState(() => new Date());
 
   const weekMonday = getMonday(selectedDate);
-  const weekSaturday = addDays(weekMonday, 5);
-  const weekMondayStr = toDateStr(weekMonday);
-  const weekSaturdayStr = toDateStr(weekSaturday);
 
-  const activeData = useMemo(() => {
-    return cursadas.filter((c) => {
-      if (c.weeklyRepetition) {
-        const { startDate, endDate } = c.asignatura;
-        if (startDate && weekSaturdayStr < startDate) return false;
-        if (endDate && weekMondayStr > endDate) return false;
-        return true;
-      }
-      if (!c.eventDate) return false;
-      return c.eventDate >= weekMondayStr && c.eventDate <= weekSaturdayStr;
+  // Cursadas de cada día de la semana, resueltas sobre la fecha concreta:
+  // período de la asignatura, recesos y eventos que desplazan cursadas.
+  const cursadasByDay = (() => {
+    const monday = weekMonday;
+    const map = new Map<number, { date: string; cursadas: Cursada[] }>();
+    ALL_DAYS.forEach((day, i) => {
+      const date = toDateStr(addDays(monday, i));
+      map.set(day, {
+        date,
+        cursadas: cursadasDelDia(cursadas, date, { prioridadEventos: true }),
+      });
     });
-  }, [cursadas, weekMondayStr, weekSaturdayStr]);
+    return map;
+  })();
 
+  const DAYS = ALL_DAYS.filter(
+    (day) => day !== 0 || cursadasByDay.get(0)!.cursadas.length > 0
+  );
+  const activeData = DAYS.flatMap((day) => cursadasByDay.get(day)!.cursadas);
   const dayDates = DAYS.map((_, i) => addDays(weekMonday, i));
+  const weekEnd = dayDates[dayDates.length - 1];
 
   const goToPrevWeek = () => setSelectedDate(addDays(selectedDate, -7));
   const goToNextWeek = () => setSelectedDate(addDays(selectedDate, 7));
@@ -153,9 +143,9 @@ export function PublicWeeklyView({ cursadas }: PublicWeeklyViewProps) {
   const isCurrentWeek = toDateStr(weekMonday) === toDateStr(todayMonday);
 
   const weekLabel =
-    weekMonday.getFullYear() === weekSaturday.getFullYear()
-      ? `${formatShortDate(weekMonday)} - ${formatShortDate(weekSaturday)} ${weekSaturday.getFullYear()}`
-      : `${formatShortDate(weekMonday)} ${weekMonday.getFullYear()} - ${formatShortDate(weekSaturday)} ${weekSaturday.getFullYear()}`;
+    weekMonday.getFullYear() === weekEnd.getFullYear()
+      ? `${formatShortDate(weekMonday)} - ${formatShortDate(weekEnd)} ${weekEnd.getFullYear()}`
+      : `${formatShortDate(weekMonday)} ${weekMonday.getFullYear()} - ${formatShortDate(weekEnd)} ${weekEnd.getFullYear()}`;
 
   if (activeData.length === 0) {
     return (
@@ -196,49 +186,24 @@ export function PublicWeeklyView({ cursadas }: PublicWeeklyViewProps) {
   const hours = Array.from({ length: maxHour - minHour }, (_, i) => minHour + i);
 
   const dateByDay = new Map<number, string>();
-  DAYS.forEach((day, i) => {
-    dateByDay.set(day, toDateStr(dayDates[i]));
-  });
-
-  const cursadasByDay = new Map<number, Cursada[]>();
-  for (const day of DAYS) {
-    cursadasByDay.set(day, []);
-  }
-  for (const cursada of activeData) {
-    if (cursada.weeklyRepetition) {
-      for (const day of cursada.daysOfWeek) {
-        if (!DAYS.includes(day)) continue;
-        const dateStr = dateByDay.get(day)!;
-        // Skip if this specific date falls within a receso period
-        const inReceso = cursada.asignatura.recesos.some(
-          (r) => dateStr >= r.startDate && dateStr <= r.endDate
-        );
-        if (inReceso) continue;
-        cursadasByDay.get(day)!.push(cursada);
-      }
-    } else if (cursada.eventDate) {
-      const [y, m, d] = cursada.eventDate.split("-").map(Number);
-      const eventDay = new Date(y, m - 1, d).getDay();
-      if (DAYS.includes(eventDay)) {
-        cursadasByDay.get(eventDay)!.push(cursada);
-      }
-    }
-  }
+  for (const day of DAYS) dateByDay.set(day, cursadasByDay.get(day)!.date);
 
   const layoutByDay = new Map<number, Map<string, number>>();
   let totalHeight = baseHeight;
   for (const day of DAYS) {
     const layout = computeVerticalLayout(
-      cursadasByDay.get(day)!,
+      cursadasByDay.get(day)!.cursadas,
       gridStartMinutes
     );
     layoutByDay.set(day, layout);
-    for (const cursada of cursadasByDay.get(day)!) {
+    for (const cursada of cursadasByDay.get(day)!.cursadas) {
       const top = layout.get(cursada.id)!;
       const bottom = top + cursada.durationMinutes * PIXELS_PER_MINUTE;
       if (bottom > totalHeight) totalHeight = bottom;
     }
   }
+
+  const gridTemplateColumns = `80px repeat(${DAYS.length}, 1fr)`;
 
   return (
     <div>
@@ -254,7 +219,10 @@ export function PublicWeeklyView({ cursadas }: PublicWeeklyViewProps) {
       <ScrollArea className="rounded-lg border">
         <div className="min-w-[800px]">
           {/* Header */}
-          <div className="sticky top-0 z-10 grid grid-cols-[80px_repeat(6,1fr)] border-b bg-background">
+          <div
+            className="sticky top-0 z-10 grid border-b bg-background"
+            style={{ gridTemplateColumns }}
+          >
             <div className="border-r p-2 text-center text-sm font-medium text-muted-foreground">
               Hora
             </div>
@@ -274,7 +242,7 @@ export function PublicWeeklyView({ cursadas }: PublicWeeklyViewProps) {
           </div>
 
           {/* Grid body */}
-          <div className="grid grid-cols-[80px_repeat(6,1fr)]">
+          <div className="grid" style={{ gridTemplateColumns }}>
             {/* Time labels column */}
             <div className="relative border-r" style={{ height: totalHeight }}>
               {hours.map((hour) => {
@@ -311,7 +279,7 @@ export function PublicWeeklyView({ cursadas }: PublicWeeklyViewProps) {
                   );
                 })}
 
-                {cursadasByDay.get(day)!.map((cursada) => {
+                {cursadasByDay.get(day)!.cursadas.map((cursada) => {
                   const top = layoutByDay.get(day)!.get(cursada.id)!;
                   const height = cursada.durationMinutes * PIXELS_PER_MINUTE;
                   const endTime = addMinutesToTime(

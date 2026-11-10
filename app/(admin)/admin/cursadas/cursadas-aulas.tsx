@@ -10,6 +10,7 @@ import { SuspensionDialog } from "./suspension-dialog";
 import { ChevronLeft, ChevronRight, Pencil, Trash2, Ban } from "lucide-react";
 import { DeleteDialog } from "@/components/admin/delete-dialog";
 import { deleteCursada } from "@/actions/cursadas";
+import { occursOn } from "@/lib/cursadas-schedule";
 
 type Carrera = {
   id: string;
@@ -46,7 +47,13 @@ type Cursada = {
   updatedAt: Date;
   aula: Aula;
   carrera: Carrera;
-  asignatura: { id: string; name: string; startDate: string | null; endDate: string | null };
+  asignatura: {
+    id: string;
+    name: string;
+    startDate: string | null;
+    endDate: string | null;
+    recesos?: { startDate: string; endDate: string }[];
+  };
   cursadaDocentes: {
     user: { id: string; name: string; email: string };
   }[];
@@ -169,17 +176,8 @@ export function CursadasAulas({
 
   // Filter cursadas for the selected day
   const dayCursadas = useMemo(() => {
-    return data.filter((c) => {
-      if (c.weeklyRepetition) {
-        if (!c.daysOfWeek.includes(dayOfWeek)) return false;
-        const { startDate, endDate } = c.asignatura;
-        if (startDate && selectedDateStr < startDate) return false;
-        if (endDate && selectedDateStr > endDate) return false;
-        return true;
-      }
-      return c.eventDate === selectedDateStr;
-    });
-  }, [data, dayOfWeek, selectedDateStr]);
+    return data.filter((c) => occursOn(c, selectedDateStr));
+  }, [data, selectedDateStr]);
 
   // Only show aulas that have cursadas for this day
   const activeAulas = useMemo(() => {

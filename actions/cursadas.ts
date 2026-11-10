@@ -14,6 +14,12 @@ import { eq, and, ne } from "drizzle-orm";
 import { z } from "zod";
 import { requireCursadaPermission, requirePermission } from "@/lib/auth-server";
 import { sedesCon } from "@/lib/permissions";
+import {
+  addDays,
+  cursadasDelDia,
+  getMonday,
+  toDateStr,
+} from "@/lib/cursadas-schedule";
 
 // La sede de una cursada es la de su aula: los permisos de cursadas se
 // otorgan sede por sede, así que toda mutación se valida contra esa sede.
@@ -153,7 +159,7 @@ export async function getCursadasByDay(dayOfWeek: number) {
 }
 
 export async function hasExamenes(): Promise<boolean> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toDateStr(new Date());
   const allExams = await db.query.cursadas.findMany({
     where: eq(cursadas.examen, true),
     with: { asignatura: { with: { recesos: true } }, carrera: true },
@@ -177,7 +183,7 @@ export async function hasExamenesForDay(dayOfWeek: number): Promise<boolean> {
     with: { asignatura: { with: { recesos: true } }, carrera: true },
   });
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toDateStr(new Date());
 
   return allExams.some((exam) => {
     if (!exam.carrera.visible || !exam.asignatura.visible) return false;
@@ -219,114 +225,35 @@ export async function getCursadasByFilters(filters: {
     },
   });
 
-  const today = new Date().toISOString().slice(0, 10);
-
-  // Calculate current week range (Monday to Sunday)
-  const now = new Date();
-  const dow = now.getDay(); // 0=Sunday
-  const mondayOffset = dow === 0 ? -6 : 1 - dow;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + mondayOffset);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  const weekStart = monday.toISOString().slice(0, 10);
-  const weekEnd = sunday.toISOString().slice(0, 10);
-
   const filtered = allCursadas.filter((cursada) => {
     // Hide cursadas from non-visible carreras/asignaturas on public page
     if (!cursada.carrera.visible || !cursada.asignatura.visible) return false;
-    if (filters.dayOfWeek !== undefined) {
-      if (cursada.weeklyRepetition) {
-        if (!cursada.daysOfWeek.includes(filters.dayOfWeek)) return false;
-      } else {
-        if (!cursada.eventDate) return false;
-        const eventDayOfWeek = getDayOfWeekFromDate(cursada.eventDate);
-        if (eventDayOfWeek !== filters.dayOfWeek) return false;
-      }
-    }
     // La sede de una cursada es la de su aula.
     if (filters.sedeId && cursada.aula.sedeId !== filters.sedeId) return false;
     if (filters.carreraId && cursada.carreraId !== filters.carreraId) return false;
     if (filters.asignaturaId && cursada.asignaturaId !== filters.asignaturaId) return false;
     if (filters.aulaId && cursada.aulaId !== filters.aulaId) return false;
-    // In weekly view, let the client component filter by the selected week
-    if (filters.vista !== "semanal") {
-      // Exclude weekly cursadas outside their asignatura's date range
-      if (cursada.weeklyRepetition) {
-        if (cursada.asignatura.startDate && today < cursada.asignatura.startDate) return false;
-        if (cursada.asignatura.endDate && today > cursada.asignatura.endDate) return false;
-        // Hide weekly cursadas during a receso period
-        if (isDateInRecesos(today, cursada.asignatura.recesos)) return false;
-      }
-      // Single-date events: only show if within current week
-      if (!cursada.weeklyRepetition) {
-        if (!cursada.eventDate) return false;
-        if (cursada.eventDate < weekStart || cursada.eventDate > weekEnd) return false;
-      }
-    }
     return true;
   });
 
-  // Event priority: eventos (examen=true) displace cursadas in same aula + overlapping time
-  const eventos = filtered.filter(c => c.examen);
-  const cursadasRegulares = filtered.filter(c => !c.examen);
+  // La vista semanal resuelve fecha por fecha en el cliente (período de la
+  // asignatura, recesos, prioridad de eventos y suspensiones), porque el
+  // usuario navega entre semanas.
+  if (filters.vista === "semanal") {
+    return filtered.map((cursada) => ({ ...cursada, suspension: null }));
+  }
 
-  const remainingCursadas = cursadasRegulares.filter(cursada => {
-    return !eventos.some(evento => {
-      if (evento.aulaId !== cursada.aulaId) return false;
-      // When no dayOfWeek filter, check that they share a day
-      if (filters.dayOfWeek === undefined) {
-        let shareDay = false;
-        if (evento.weeklyRepetition && cursada.weeklyRepetition) {
-          shareDay = cursada.daysOfWeek.some(d => evento.daysOfWeek.includes(d));
-        } else if (!evento.weeklyRepetition && cursada.weeklyRepetition && evento.eventDate) {
-          shareDay = cursada.daysOfWeek.includes(getDayOfWeekFromDate(evento.eventDate));
-        } else if (evento.weeklyRepetition && !cursada.weeklyRepetition && cursada.eventDate) {
-          shareDay = evento.daysOfWeek.includes(getDayOfWeekFromDate(cursada.eventDate));
-        } else if (!evento.weeklyRepetition && !cursada.weeklyRepetition) {
-          shareDay = cursada.eventDate === evento.eventDate;
-        }
-        if (!shareDay) return false;
-      }
-      // Check time overlap
-      const cStart = timeToMinutes(cursada.startTime);
-      const cEnd = cStart + cursada.durationMinutes;
-      const eStart = timeToMinutes(evento.startTime);
-      const eEnd = eStart + evento.durationMinutes;
-      return cStart < eEnd && eStart < cEnd;
-    });
-  });
+  // La grilla muestra un día concreto de la semana actual: el elegido o hoy.
+  const now = new Date();
+  const dow = filters.dayOfWeek ?? now.getDay();
+  const fecha = toDateStr(addDays(getMonday(now), dow === 0 ? 6 : dow - 1));
 
-  // For the day-list view each cursada resolves to one concrete date, so we can
-  // attach the matching suspension (if any). In the weekly view the client
-  // resolves suspensions per column date from the `suspensiones` array instead.
-  const isSemanal = filters.vista === "semanal";
-  const dayListDow = filters.dayOfWeek ?? new Date().getDay();
-  const dayListDate = dateOfDowInWeek(monday, dayListDow);
-
-  const result = [...eventos, ...remainingCursadas].map((cursada) => {
-    let suspension: { date: string; observacion: string | null } | null = null;
-    if (!isSemanal) {
-      const occurrenceDate = cursada.weeklyRepetition
-        ? dayListDate
-        : cursada.eventDate;
-      if (occurrenceDate) {
-        suspension =
-          cursada.suspensiones.find((s) => s.date === occurrenceDate) ?? null;
-      }
-    }
-    return { ...cursada, suspension };
-  });
-
-  return result;
-}
-
-/** Date (YYYY-MM-DD) of the given day-of-week within the week starting at `monday`. */
-function dateOfDowInWeek(monday: Date, dayOfWeek: number): string {
-  const offset = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Mon=0 ... Sun=6
-  const d = new Date(monday);
-  d.setDate(monday.getDate() + offset);
-  return d.toISOString().slice(0, 10);
+  return cursadasDelDia(filtered, fecha, { prioridadEventos: true }).map(
+    (cursada) => ({
+      ...cursada,
+      suspension: cursada.suspensiones.find((s) => s.date === fecha) ?? null,
+    })
+  );
 }
 
 function timeToMinutes(time: string): number {
@@ -434,7 +361,7 @@ async function checkAulaConflict(
   const newStart = timeToMinutes(startTime);
   const newEnd = newStart + durationMinutes;
   const warnings: string[] = [];
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toDateStr(new Date());
 
   const nuevoPeriodo = periodoDeCursada(
     weeklyRepetition,

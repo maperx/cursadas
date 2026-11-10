@@ -61,7 +61,13 @@ type Cursada = {
   updatedAt: Date;
   aula: Aula;
   carrera: Carrera;
-  asignatura: { id: string; name: string; startDate: string | null; endDate: string | null };
+  asignatura: {
+    id: string;
+    name: string;
+    startDate: string | null;
+    endDate: string | null;
+    recesos?: { startDate: string; endDate: string }[];
+  };
   cursadaDocentes: {
     user: Docente;
   }[];

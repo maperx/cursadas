@@ -11,6 +11,7 @@ import { deleteCursada } from "@/actions/cursadas";
 import { getDayName, getDayFullName, formatTime, addMinutesToTime } from "@/lib/utils";
 import { useMemo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { occursOn } from "@/lib/cursadas-schedule";
 
 type Carrera = {
   id: string;
@@ -59,7 +60,13 @@ type Cursada = {
   updatedAt: Date;
   aula: Aula;
   carrera: Carrera;
-  asignatura: { id: string; name: string; startDate: string | null; endDate: string | null };
+  asignatura: {
+    id: string;
+    name: string;
+    startDate: string | null;
+    endDate: string | null;
+    recesos?: { startDate: string; endDate: string }[];
+  };
   cursadaDocentes: {
     user: Docente;
   }[];
@@ -116,17 +123,8 @@ export function CursadasTable({
   const selectedDateStr = toInputValue(selectedDate);
   const dayOfWeek = selectedDate.getDay();
   const activeCursadas = useMemo(() => {
-    return data.filter((c) => {
-      if (c.weeklyRepetition) {
-        if (!c.daysOfWeek.includes(dayOfWeek)) return false;
-        const { startDate, endDate } = c.asignatura;
-        if (startDate && selectedDateStr < startDate) return false;
-        if (endDate && selectedDateStr > endDate) return false;
-        return true;
-      }
-      return c.eventDate === selectedDateStr;
-    });
-  }, [data, selectedDateStr, dayOfWeek]);
+    return data.filter((c) => occursOn(c, selectedDateStr));
+  }, [data, selectedDateStr]);
   const isToday = selectedDateStr === toInputValue(new Date());
   const goToPrev = () => onDateChange(addDays(selectedDate, -1));
   const goToNext = () => onDateChange(addDays(selectedDate, 1));

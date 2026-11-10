@@ -9,6 +9,7 @@ import { CursadaEditWrapper } from "./cursada-edit-wrapper";
 import { SuspensionDialog } from "./suspension-dialog";
 import { DeleteDialog } from "@/components/admin/delete-dialog";
 import { deleteCursada } from "@/actions/cursadas";
+import { occursOn } from "@/lib/cursadas-schedule";
 
 type Carrera = {
   id: string;
@@ -45,7 +46,13 @@ type Cursada = {
   updatedAt: Date;
   aula: Aula;
   carrera: Carrera;
-  asignatura: { id: string; name: string; startDate: string | null; endDate: string | null };
+  asignatura: {
+    id: string;
+    name: string;
+    startDate: string | null;
+    endDate: string | null;
+    recesos?: { startDate: string; endDate: string }[];
+  };
   cursadaDocentes: {
     user: { id: string; name: string; email: string };
   }[];
@@ -174,18 +181,8 @@ export function CursadasDaily({
   // JS getDay(): 0=Sunday, 1=Monday... matches our daysOfWeek convention
   const dayOfWeek = selectedDate.getDay();
   const selectedDateStr = toInputValue(selectedDate); // "YYYY-MM-DD"
-  const dayCursadas = data.filter((c) => {
-    if (c.weeklyRepetition) {
-      // Weekly events: match by day of week
-      if (!c.daysOfWeek.includes(dayOfWeek)) return false;
-      const { startDate, endDate } = c.asignatura;
-      if (startDate && selectedDateStr < startDate) return false;
-      if (endDate && selectedDateStr > endDate) return false;
-      return true;
-    }
-    // Non-weekly events: match by exact date
-    return c.eventDate === selectedDateStr;
-  });
+  const dayCursadas = data.filter((c) => occursOn(c, selectedDateStr));
+
 
   // Date navigation
   const goToPrev = () => onDateChange(addDays(selectedDate, -1));
